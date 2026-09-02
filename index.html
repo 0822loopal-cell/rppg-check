@@ -7,7 +7,7 @@
 
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       margin: 0;
       padding: 24px;
       background: #f5f7fa;
@@ -36,19 +36,61 @@
       color: white;
     }
 
-    video {
-      display: none;
+    #videoWrap {
+      position: relative;
       width: 100%;
       max-width: 420px;
       margin: 24px auto 0;
+      display: none;
+    }
+
+    video {
+      width: 100%;
       border-radius: 16px;
       background: #000;
       transform: scaleX(-1);
+      display: block;
+    }
+
+    #roi {
+      position: absolute;
+      left: 35%;
+      top: 18%;
+      width: 30%;
+      height: 16%;
+      border: 3px solid white;
+      border-radius: 10px;
+      box-sizing: border-box;
+      pointer-events: none;
     }
 
     #status {
       margin-top: 18px;
       font-size: 16px;
+    }
+
+    #rgbBox {
+      display: none;
+      max-width: 420px;
+      margin: 20px auto;
+      padding: 18px;
+      background: white;
+      border-radius: 16px;
+    }
+
+    .rgb {
+      font-size: 20px;
+      font-weight: bold;
+      line-height: 1.8;
+    }
+
+    #note {
+      font-size: 14px;
+      color: #666;
+    }
+
+    canvas {
+      display: none;
     }
   </style>
 </head>
@@ -57,23 +99,53 @@
 
   <h1>rPPG CHECK</h1>
 
-  <p>簡易コンディション測定 Ver.1</p>
+  <p>簡易コンディション測定 Ver.2</p>
 
   <p>
-    まずはスマートフォンの<br>
-    フロントカメラが正常に使えるか確認します。
+    フロントカメラ映像から<br>
+    顔の色データを取得します。
   </p>
 
   <button id="startButton">カメラを起動</button>
 
   <p id="status">カメラはまだ起動していません。</p>
 
-  <video id="video" autoplay playsinline muted></video>
+  <div id="videoWrap">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="roi"></div>
+  </div>
+
+  <div id="rgbBox">
+    <div class="rgb">
+      R：<span id="rValue">---</span><br>
+      G：<span id="gValue">---</span><br>
+      B：<span id="bValue">---</span>
+    </div>
+
+    <p id="note">
+      白い枠内の平均RGB値を表示しています。
+    </p>
+  </div>
+
+  <canvas id="canvas"></canvas>
 
   <script>
     const startButton = document.getElementById("startButton");
     const video = document.getElementById("video");
+    const videoWrap = document.getElementById("videoWrap");
     const status = document.getElementById("status");
+    const rgbBox = document.getElementById("rgbBox");
+
+    const rValue = document.getElementById("rValue");
+    const gValue = document.getElementById("gValue");
+    const bValue = document.getElementById("bValue");
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d", {
+      willReadFrequently: true
+    });
+
+    let timer = null;
 
     startButton.addEventListener("click", async () => {
       try {
@@ -87,11 +159,22 @@
         });
 
         video.srcObject = stream;
-        video.style.display = "block";
 
-        status.textContent = "カメラが正常に起動しました。";
+        videoWrap.style.display = "block";
+        rgbBox.style.display = "block";
+
         startButton.textContent = "カメラ起動済み";
         startButton.disabled = true;
+
+        video.addEventListener("loadedmetadata", () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+
+          status.textContent =
+            "カメラ映像から色データを取得しています。";
+
+          startRGBReading();
+        }, { once: true });
 
       } catch (error) {
         console.error(error);
@@ -100,6 +183,63 @@
           "カメラを起動できませんでした。カメラの使用を許可してください。";
       }
     });
+
+    function startRGBReading() {
+      if (timer) {
+        clearInterval(timer);
+      }
+
+      timer = setInterval(() => {
+        if (
+          video.readyState < 2 ||
+          video.videoWidth === 0 ||
+          video.videoHeight === 0
+        ) {
+          return;
+        }
+
+        ctx.drawImage(
+          video,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        const roiX = Math.floor(canvas.width * 0.35);
+        const roiY = Math.floor(canvas.height * 0.18);
+        const roiW = Math.floor(canvas.width * 0.30);
+        const roiH = Math.floor(canvas.height * 0.16);
+
+        const imageData = ctx.getImageData(
+          roiX,
+          roiY,
+          roiW,
+          roiH
+        );
+
+        const data = imageData.data;
+
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let count = 0;
+
+        for (let i = 0; i < data.length; i += 16) {
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          count++;
+        }
+
+        if (count > 0) {
+          rValue.textContent = (r / count).toFixed(1);
+          gValue.textContent = (g / count).toFixed(1);
+          bValue.textContent = (b / count).toFixed(1);
+        }
+
+      }, 200);
+    }
   </script>
 
 </body>
