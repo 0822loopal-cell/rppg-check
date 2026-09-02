@@ -197,7 +197,7 @@ video {
 
 <h1>rPPG CHECK</h1>
 
-<p>HRV検証版 Ver.6.2</p>
+<p>HRV検証版 Ver.6.3</p>
 
 <p>
 白い枠を額中央の皮膚に合わせ、<br>
@@ -276,8 +276,8 @@ video {
   </div>
 
   <p id="analysisInfo" class="small"></p>
-
   <p id="frameInfo" class="small"></p>
+  <p id="signalInfo" class="small"></p>
 
   <div class="warning">
     RMSSD・SDNNはHRV検証のための試験値です。<br>
@@ -288,9 +288,10 @@ video {
 </div>
 
 <div id="signalBox" class="card">
-  <h2>拍動信号</h2>
+  <h2>POS拍動信号</h2>
   <canvas id="signalGraph" class="graph"></canvas>
   <p class="small">
+    RGBから生成したPOS系rPPG信号です。<br>
     縦線は検出された拍動位置です。
   </p>
 </div>
@@ -343,10 +344,10 @@ const rejectedValue = document.getElementById("rejectedValue");
 const quality = document.getElementById("quality");
 const analysisInfo = document.getElementById("analysisInfo");
 const frameInfo = document.getElementById("frameInfo");
+const signalInfo = document.getElementById("signalInfo");
 const intervalList = document.getElementById("intervalList");
 
 const sourceCanvas = document.getElementById("sourceCanvas");
-
 const sourceCtx = sourceCanvas.getContext(
   "2d",
   { willReadFrequently: true }
@@ -363,7 +364,9 @@ let previewTimer = null;
 let fallbackTimer = null;
 let countdownTimer = null;
 
+let rSamples = [];
 let gSamples = [];
+let bSamples = [];
 let sampleTimes = [];
 
 let measuring = false;
@@ -371,30 +374,21 @@ let measurementStart = 0;
 let acquisitionMode = "";
 
 
-/* =========================
-   CAMERA
-========================= */
+/* CAMERA */
 
 cameraButton.addEventListener("click", async () => {
 
   try {
 
-    statusText.textContent =
-      "カメラを起動しています…";
+    statusText.textContent = "カメラを起動しています…";
 
-    const stream =
-      await navigator.mediaDevices.getUserMedia({
-
-        video: {
-          facingMode: "user",
-          frameRate: {
-            ideal: 30
-          }
-        },
-
-        audio: false
-
-      });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: "user",
+        frameRate: { ideal: 30 }
+      },
+      audio: false
+    });
 
     video.srcObject = stream;
 
@@ -404,23 +398,19 @@ cameraButton.addEventListener("click", async () => {
     cameraButton.disabled = true;
     cameraButton.textContent = "カメラ起動済み";
 
-    video.addEventListener(
-      "loadedmetadata",
-      () => {
+    video.addEventListener("loadedmetadata", () => {
 
-        sourceCanvas.width = video.videoWidth;
-        sourceCanvas.height = video.videoHeight;
+      sourceCanvas.width = video.videoWidth;
+      sourceCanvas.height = video.videoHeight;
 
-        statusText.textContent =
-          "白い枠を額中央へ合わせてください。";
+      statusText.textContent =
+        "白い枠を額中央へ合わせてください。";
 
-        measureButton.disabled = false;
+      measureButton.disabled = false;
 
-        startPreview();
+      startPreview();
 
-      },
-      { once: true }
-    );
+    }, { once: true });
 
   }
 
@@ -436,9 +426,7 @@ cameraButton.addEventListener("click", async () => {
 });
 
 
-/* =========================
-   ROI DRAG
-========================= */
+/* ROI DRAG */
 
 roi.addEventListener("pointerdown", event => {
 
@@ -453,50 +441,28 @@ roi.addEventListener("pointerdown", event => {
 
 });
 
-
 roi.addEventListener("pointermove", event => {
 
   if (!dragging || measuring) return;
 
   const wrapRect = videoWrap.getBoundingClientRect();
 
-  let x =
-    event.clientX -
-    wrapRect.left -
-    offsetX;
+  let x = event.clientX - wrapRect.left - offsetX;
+  let y = event.clientY - wrapRect.top - offsetY;
 
-  let y =
-    event.clientY -
-    wrapRect.top -
-    offsetY;
-
-  const maxX =
-    videoWrap.clientWidth -
-    roi.offsetWidth;
-
-  const maxY =
-    videoWrap.clientHeight -
-    roi.offsetHeight;
+  const maxX = videoWrap.clientWidth - roi.offsetWidth;
+  const maxY = videoWrap.clientHeight - roi.offsetHeight;
 
   x = Math.max(0, Math.min(x, maxX));
   y = Math.max(0, Math.min(y, maxY));
 
   roi.style.left =
-    (
-      x /
-      videoWrap.clientWidth *
-      100
-    ) + "%";
+    (x / videoWrap.clientWidth * 100) + "%";
 
   roi.style.top =
-    (
-      y /
-      videoWrap.clientHeight *
-      100
-    ) + "%";
+    (y / videoWrap.clientHeight * 100) + "%";
 
 });
-
 
 roi.addEventListener("pointerup", () => {
   dragging = false;
@@ -507,16 +473,11 @@ roi.addEventListener("pointercancel", () => {
 });
 
 
-/* =========================
-   RGB
-========================= */
+/* RGB */
 
 function getRGB() {
 
-  if (
-    video.readyState < 2 ||
-    video.videoWidth === 0
-  ) {
+  if (video.readyState < 2 || video.videoWidth === 0) {
     return null;
   }
 
@@ -528,95 +489,41 @@ function getRGB() {
     sourceCanvas.height
   );
 
-  const videoRect =
-    video.getBoundingClientRect();
-
-  const roiRect =
-    roi.getBoundingClientRect();
+  const videoRect = video.getBoundingClientRect();
+  const roiRect = roi.getBoundingClientRect();
 
   const displayX =
-    (
-      roiRect.left -
-      videoRect.left
-    ) /
-    videoRect.width;
+    (roiRect.left - videoRect.left) / videoRect.width;
 
   const displayY =
-    (
-      roiRect.top -
-      videoRect.top
-    ) /
-    videoRect.height;
+    (roiRect.top - videoRect.top) / videoRect.height;
 
   const displayW =
-    roiRect.width /
-    videoRect.width;
+    roiRect.width / videoRect.width;
 
   const displayH =
-    roiRect.height /
-    videoRect.height;
-
-  /*
-    映像は左右反転表示なので、
-    Canvas側X座標を補正。
-  */
+    roiRect.height / videoRect.height;
 
   const sourceX =
-    1 -
-    displayX -
-    displayW;
+    1 - displayX - displayW;
 
-  let x =
-    Math.floor(
-      sourceX *
-      sourceCanvas.width
-    );
-
-  let y =
-    Math.floor(
-      displayY *
-      sourceCanvas.height
-    );
-
-  let w =
-    Math.floor(
-      displayW *
-      sourceCanvas.width
-    );
-
-  let h =
-    Math.floor(
-      displayH *
-      sourceCanvas.height
-    );
+  let x = Math.floor(sourceX * sourceCanvas.width);
+  let y = Math.floor(displayY * sourceCanvas.height);
+  let w = Math.floor(displayW * sourceCanvas.width);
+  let h = Math.floor(displayH * sourceCanvas.height);
 
   x = Math.max(0, x);
   y = Math.max(0, y);
 
-  w = Math.min(
-    w,
-    sourceCanvas.width - x
-  );
+  w = Math.min(w, sourceCanvas.width - x);
+  h = Math.min(h, sourceCanvas.height - y);
 
-  h = Math.min(
-    h,
-    sourceCanvas.height - y
-  );
-
-  if (
-    w <= 0 ||
-    h <= 0
-  ) {
+  if (w <= 0 || h <= 0) {
     return null;
   }
 
   const image =
-    sourceCtx.getImageData(
-      x,
-      y,
-      w,
-      h
-    );
+    sourceCtx.getImageData(x, y, w, h);
 
   const data = image.data;
 
@@ -625,11 +532,7 @@ function getRGB() {
   let b = 0;
   let count = 0;
 
-  for (
-    let i = 0;
-    i < data.length;
-    i += 16
-  ) {
+  for (let i = 0; i < data.length; i += 16) {
 
     r += data[i];
     g += data[i + 1];
@@ -652,9 +555,7 @@ function getRGB() {
 }
 
 
-/* =========================
-   PREVIEW
-========================= */
+/* PREVIEW */
 
 function startPreview() {
 
@@ -662,42 +563,35 @@ function startPreview() {
     clearInterval(previewTimer);
   }
 
-  previewTimer =
-    setInterval(() => {
+  previewTimer = setInterval(() => {
 
-      if (measuring) return;
+    if (measuring) return;
 
-      const rgb = getRGB();
+    const rgb = getRGB();
 
-      if (!rgb) return;
+    if (!rgb) return;
 
-      rValue.textContent =
-        rgb.r.toFixed(1);
+    rValue.textContent = rgb.r.toFixed(1);
+    gValue.textContent = rgb.g.toFixed(1);
+    bValue.textContent = rgb.b.toFixed(1);
 
-      gValue.textContent =
-        rgb.g.toFixed(1);
-
-      bValue.textContent =
-        rgb.b.toFixed(1);
-
-    }, 100);
+  }, 100);
 
 }
 
 
-/* =========================
-   MEASUREMENT
-========================= */
+/* MEASUREMENT */
 
 measureButton.addEventListener("click", () => {
 
   if (measuring) return;
 
   measuring = true;
-
   measureButton.disabled = true;
 
+  rSamples = [];
   gSamples = [];
+  bSamples = [];
   sampleTimes = [];
 
   resultBox.style.display = "none";
@@ -710,192 +604,115 @@ measureButton.addEventListener("click", () => {
 
   let seconds = 20;
 
-  countdown.textContent =
-    seconds + " 秒";
+  countdown.textContent = seconds + " 秒";
 
-  measurementStart =
-    performance.now();
+  measurementStart = performance.now();
 
-  countdownTimer =
-    setInterval(() => {
+  countdownTimer = setInterval(() => {
 
-      seconds--;
+    seconds--;
 
-      if (seconds > 0) {
+    if (seconds > 0) {
+      countdown.textContent = seconds + " 秒";
+    } else {
+      countdown.textContent = "測定完了";
+      clearInterval(countdownTimer);
+    }
 
-        countdown.textContent =
-          seconds + " 秒";
+  }, 1000);
 
-      }
-
-      else {
-
-        countdown.textContent =
-          "測定完了";
-
-        clearInterval(
-          countdownTimer
-        );
-
-      }
-
-    }, 1000);
-
-
-  /*
-    Ver.6.2
-
-    requestVideoFrameCallback が使える場合は、
-    ブラウザのタイマーではなく
-    実際のカメラ映像フレーム更新に合わせて取得。
-  */
 
   if (
-    typeof video.requestVideoFrameCallback ===
-    "function"
+    typeof video.requestVideoFrameCallback === "function"
   ) {
 
-    acquisitionMode =
-      "VideoFrame同期";
+    acquisitionMode = "VideoFrame同期";
 
-    video.requestVideoFrameCallback(
-      captureVideoFrame
-    );
+    video.requestVideoFrameCallback(captureVideoFrame);
 
   }
 
   else {
 
-    acquisitionMode =
-      "33msタイマー fallback";
+    acquisitionMode = "33msタイマー fallback";
 
     fallbackTimer =
-      setInterval(
-        captureFallbackFrame,
-        33
-      );
+      setInterval(captureFallbackFrame, 33);
 
   }
 
-
-  setTimeout(
-    finishMeasurement,
-    20000
-  );
+  setTimeout(finishMeasurement, 20000);
 
 });
 
 
-/* =========================
-   VIDEO FRAME CALLBACK
-========================= */
-
-function captureVideoFrame(
-  now,
-  metadata
-) {
-
-  if (!measuring) {
-    return;
-  }
-
-  const rgb =
-    getRGB();
-
-  if (rgb) {
-
-    gSamples.push(
-      rgb.g
-    );
-
-    /*
-      now は requestVideoFrameCallback の
-      高精度タイムスタンプ。
-    */
-
-    sampleTimes.push(
-      now -
-      measurementStart
-    );
-
-  }
-
-  if (measuring) {
-
-    video.requestVideoFrameCallback(
-      captureVideoFrame
-    );
-
-  }
-
-}
-
-
-/* =========================
-   FALLBACK
-========================= */
-
-function captureFallbackFrame() {
-
-  if (!measuring) {
-    return;
-  }
-
-  const rgb =
-    getRGB();
+function storeRGBSample(rgb, time) {
 
   if (!rgb) return;
 
-  gSamples.push(
-    rgb.g
+  rSamples.push(rgb.r);
+  gSamples.push(rgb.g);
+  bSamples.push(rgb.b);
+
+  sampleTimes.push(time);
+
+}
+
+
+function captureVideoFrame(now) {
+
+  if (!measuring) return;
+
+  const rgb = getRGB();
+
+  storeRGBSample(
+    rgb,
+    now - measurementStart
   );
 
-  sampleTimes.push(
-    performance.now() -
-    measurementStart
+  if (measuring) {
+    video.requestVideoFrameCallback(captureVideoFrame);
+  }
+
+}
+
+
+function captureFallbackFrame() {
+
+  if (!measuring) return;
+
+  const rgb = getRGB();
+
+  storeRGBSample(
+    rgb,
+    performance.now() - measurementStart
   );
 
 }
 
 
-/* =========================
-   FINISH
-========================= */
+/* FINISH */
 
 function finishMeasurement() {
 
   measuring = false;
 
   if (fallbackTimer) {
-
-    clearInterval(
-      fallbackTimer
-    );
-
+    clearInterval(fallbackTimer);
     fallbackTimer = null;
-
   }
 
-  clearInterval(
-    countdownTimer
-  );
+  clearInterval(countdownTimer);
 
-  measureButton.disabled =
-    false;
+  measureButton.disabled = false;
+  countdown.textContent = "測定完了";
 
-  countdown.textContent =
-    "測定完了";
-
-
-  if (
-    gSamples.length < 100
-  ) {
+  if (gSamples.length < 100) {
 
     statusText.textContent =
       "十分なデータを取得できませんでした。";
 
     startPreview();
-
     return;
 
   }
@@ -903,85 +720,63 @@ function finishMeasurement() {
 
   const duration =
     (
-      sampleTimes[
-        sampleTimes.length - 1
-      ] -
+      sampleTimes[sampleTimes.length - 1] -
       sampleTimes[0]
-    ) /
-    1000;
-
+    ) / 1000;
 
   const sampleRate =
-    (
-      gSamples.length - 1
-    ) /
-    duration;
+    (sampleTimes.length - 1) / duration;
 
-
-  /*
-    フレーム間隔を検証。
-  */
 
   const frameIntervals = [];
 
-  for (
-    let i = 1;
-    i < sampleTimes.length;
-    i++
-  ) {
-
+  for (let i = 1; i < sampleTimes.length; i++) {
     frameIntervals.push(
-      sampleTimes[i] -
-      sampleTimes[i - 1]
+      sampleTimes[i] - sampleTimes[i - 1]
     );
-
   }
 
-
   const meanFrameInterval =
-    average(
-      frameIntervals
-    );
-
+    average(frameIntervals);
 
   const frameJitter =
-    calculateSDNN(
-      frameIntervals
-    );
-
+    calculateSDNN(frameIntervals);
 
   const maxFrameGap =
-    Math.max(
-      ...frameIntervals
-    );
+    Math.max(...frameIntervals);
 
 
   /*
-    最初の2秒は除外。
+    最初の2秒を除外
   */
 
   let startIndex = 0;
 
   while (
-    startIndex <
-      sampleTimes.length &&
-    sampleTimes[startIndex] <
-      2000
+    startIndex < sampleTimes.length &&
+    sampleTimes[startIndex] < 2000
   ) {
-
     startIndex++;
-
   }
 
 
-  let signal =
-    gSamples.slice(
-      startIndex
-    );
+  const r = rSamples.slice(startIndex);
+  const g = gSamples.slice(startIndex);
+  const b = bSamples.slice(startIndex);
+  const times = sampleTimes.slice(startIndex);
 
-  const times =
-    sampleTimes.slice(
-      startIndex
+
+  /*
+    Ver.6.3
+    RGB → POS系rPPG信号
+  */
+
+  let signal =
+    createPOSSignal(
+      r,
+      g,
+      b,
+      sampleRate
     );
 
 
@@ -990,37 +785,20 @@ function finishMeasurement() {
       signal,
       Math.max(
         7,
-        Math.round(
-          sampleRate *
-          1.5
-        )
+        Math.round(sampleRate * 1.5)
       )
     );
 
-
-  signal =
-    centerSignal(
-      signal
-    );
-
-
-  signal =
-    smoothSignal(
-      signal,
-      2
-    );
+  signal = centerSignal(signal);
+  signal = smoothSignal(signal, 2);
 
 
   /*
-    HRはVer.5系の
-    周波数解析を維持。
+    HR解析
   */
 
   const windowed =
-    applyHannWindow(
-      signal
-    );
-
+    applyHannWindow(signal);
 
   const spectrum =
     calculateSpectrum(
@@ -1030,51 +808,31 @@ function finishMeasurement() {
       180
     );
 
+  let strongest = spectrum[0];
 
-  let strongest =
-    spectrum[0];
+  for (const point of spectrum) {
 
-
-  for (
-    const point of spectrum
-  ) {
-
-    if (
-      point.power >
-      strongest.power
-    ) {
-
-      strongest =
-        point;
-
+    if (point.power > strongest.power) {
+      strongest = point;
     }
 
   }
 
-
-  const frequencyBPM =
-    strongest.bpm;
-
+  const frequencyBPM = strongest.bpm;
 
   const averagePower =
     spectrum.reduce(
-      (sum, p) =>
-        sum + p.power,
+      (sum, p) => sum + p.power,
       0
-    ) /
-    spectrum.length;
-
+    ) / spectrum.length;
 
   const qualityRatio =
     strongest.power /
-    Math.max(
-      averagePower,
-      0.0000001
-    );
+    Math.max(averagePower, 0.0000001);
 
 
   /*
-    拍動位置追跡。
+    PPI解析
   */
 
   const beatResult =
@@ -1084,26 +842,18 @@ function finishMeasurement() {
       frequencyBPM
     );
 
-
   const beatTimes =
     beatResult.beatTimes;
 
-
   const rawIntervals = [];
 
-  for (
-    let i = 1;
-    i < beatTimes.length;
-    i++
-  ) {
+  for (let i = 1; i < beatTimes.length; i++) {
 
     rawIntervals.push(
-      beatTimes[i] -
-      beatTimes[i - 1]
+      beatTimes[i] - beatTimes[i - 1]
     );
 
   }
-
 
   const intervalResult =
     cleanIntervals(
@@ -1111,10 +861,8 @@ function finishMeasurement() {
       frequencyBPM
     );
 
-
   const intervals =
     intervalResult.accepted;
-
 
   const rejectedCount =
     intervalResult.rejected;
@@ -1124,40 +872,22 @@ function finishMeasurement() {
   let sdnn = null;
   let meanPPI = null;
 
+  if (intervals.length >= 4) {
 
-  if (
-    intervals.length >= 4
-  ) {
-
-    meanPPI =
-      average(
-        intervals
-      );
-
-    sdnn =
-      calculateSDNN(
-        intervals
-      );
-
-    rmssd =
-      calculateRMSSD(
-        intervals
-      );
+    meanPPI = average(intervals);
+    sdnn = calculateSDNN(intervals);
+    rmssd = calculateRMSSD(intervals);
 
   }
 
 
-  let qualityText;
-
-
   const rejectionRatio =
     rawIntervals.length > 0
-      ?
-      rejectedCount /
-      rawIntervals.length
-      :
-      1;
+      ? rejectedCount / rawIntervals.length
+      : 1;
 
+
+  let qualityText;
 
   if (
     qualityRatio >= 5 &&
@@ -1165,8 +895,7 @@ function finishMeasurement() {
     rejectionRatio <= 0.15
   ) {
 
-    qualityText =
-      "測定品質：良好";
+    qualityText = "測定品質：良好";
 
   }
 
@@ -1176,80 +905,55 @@ function finishMeasurement() {
     rejectionRatio <= 0.40
   ) {
 
-    qualityText =
-      "測定品質：中程度";
+    qualityText = "測定品質：中程度";
 
   }
 
   else {
 
-    qualityText =
-      "測定品質：低い";
+    qualityText = "測定品質：低い";
 
   }
 
 
-  resultBox.style.display =
-    "block";
-
-  signalBox.style.display =
-    "block";
-
-  intervalBox.style.display =
-    "block";
-
-  spectrumBox.style.display =
-    "block";
-
+  resultBox.style.display = "block";
+  signalBox.style.display = "block";
+  intervalBox.style.display = "block";
+  spectrumBox.style.display = "block";
 
   statusText.textContent =
     "測定が完了しました。";
 
 
   bpmValue.textContent =
-    Math.round(
-      frequencyBPM
-    );
-
+    Math.round(frequencyBPM);
 
   quality.textContent =
     qualityText;
 
-
   beatCountValue.textContent =
     beatTimes.length;
-
 
   acceptedValue.textContent =
     intervals.length;
 
-
   rejectedValue.textContent =
     rejectedCount;
 
-
   meanPpiValue.textContent =
     meanPPI !== null
-      ?
-      Math.round(meanPPI)
-      :
-      "---";
-
+      ? Math.round(meanPPI)
+      : "---";
 
   rmssdValue.textContent =
     rmssd !== null
-      ?
-      rmssd.toFixed(1)
-      :
-      "---";
-
+      ? rmssd.toFixed(1)
+      : "---";
 
   sdnnValue.textContent =
     sdnn !== null
-      ?
-      sdnn.toFixed(1)
-      :
-      "---";
+      ? sdnn.toFixed(1)
+      : "---";
 
 
   analysisInfo.textContent =
@@ -1273,20 +977,19 @@ function finishMeasurement() {
     " ms";
 
 
-  if (
-    intervals.length > 0
-  ) {
+  signalInfo.textContent =
+    "信号方式：RGB-POS系 Ver.6.3";
+
+
+  if (intervals.length > 0) {
 
     intervalList.textContent =
       intervals
-      .map(
-        value =>
-          Math.round(value) +
-          " ms"
-      )
-      .join(
-        " → "
-      );
+        .map(
+          value =>
+            Math.round(value) + " ms"
+        )
+        .join(" → ");
 
   }
 
@@ -1305,12 +1008,10 @@ function finishMeasurement() {
     beatTimes
   );
 
-
   drawSpectrumGraph(
     spectrumGraph,
     spectrum
   );
-
 
   startPreview();
 
@@ -1318,30 +1019,251 @@ function finishMeasurement() {
 
 
 /* =========================
-   AVERAGE
+   POS SIGNAL
 ========================= */
 
-function average(values) {
+/*
+  RGBの共通変動を抑え、
+  色成分の相対変化から
+  rPPG信号を生成する簡易POS系実装。
 
-  if (
-    values.length === 0
+  現段階では研究・検証用。
+*/
+
+function createPOSSignal(
+  r,
+  g,
+  b,
+  sampleRate
+) {
+
+  const n = r.length;
+
+  const output =
+    new Array(n).fill(0);
+
+  const weight =
+    new Array(n).fill(0);
+
+  /*
+    POSで一般的な短時間窓に近い
+    約1.6秒を使用
+  */
+
+  const windowLength =
+    Math.max(
+      12,
+      Math.round(sampleRate * 1.6)
+    );
+
+  const step =
+    Math.max(
+      1,
+      Math.round(windowLength / 4)
+    );
+
+
+  for (
+    let start = 0;
+    start + windowLength <= n;
+    start += step
   ) {
-    return 0;
+
+    const end =
+      start + windowLength;
+
+
+    let meanR = 0;
+    let meanG = 0;
+    let meanB = 0;
+
+
+    for (
+      let i = start;
+      i < end;
+      i++
+    ) {
+
+      meanR += r[i];
+      meanG += g[i];
+      meanB += b[i];
+
+    }
+
+
+    meanR /= windowLength;
+    meanG /= windowLength;
+    meanB /= windowLength;
+
+
+    if (
+      meanR === 0 ||
+      meanG === 0 ||
+      meanB === 0
+    ) {
+      continue;
+    }
+
+
+    const x = [];
+    const y = [];
+
+
+    for (
+      let i = start;
+      i < end;
+      i++
+    ) {
+
+      const rn =
+        r[i] / meanR;
+
+      const gn =
+        g[i] / meanG;
+
+      const bn =
+        b[i] / meanB;
+
+
+      /*
+        POS projection
+      */
+
+      x.push(
+        gn - bn
+      );
+
+
+      y.push(
+        gn + bn -
+        2 * rn
+      );
+
+    }
+
+
+    const sx =
+      standardDeviation(x);
+
+    const sy =
+      standardDeviation(y);
+
+
+    const alpha =
+      sy > 0
+        ? sx / sy
+        : 0;
+
+
+    const h = [];
+
+
+    for (
+      let i = 0;
+      i < windowLength;
+      i++
+    ) {
+
+      h.push(
+        x[i] +
+        alpha * y[i]
+      );
+
+    }
+
+
+    const hMean =
+      average(h);
+
+
+    for (
+      let i = 0;
+      i < windowLength;
+      i++
+    ) {
+
+      const globalIndex =
+        start + i;
+
+
+      output[globalIndex] +=
+        h[i] - hMean;
+
+
+      weight[globalIndex] += 1;
+
+    }
+
   }
 
-  return values.reduce(
-    (a, b) =>
-      a + b,
-    0
-  ) /
-  values.length;
+
+  for (
+    let i = 0;
+    i < n;
+    i++
+  ) {
+
+    if (weight[i] > 0) {
+
+      output[i] /=
+        weight[i];
+
+    }
+
+  }
+
+
+  return output;
 
 }
 
 
-/* =========================
-   BASELINE
-========================= */
+/* STANDARD DEVIATION */
+
+function standardDeviation(values) {
+
+  if (values.length < 2) {
+    return 0;
+  }
+
+  const mean =
+    average(values);
+
+  let sum = 0;
+
+  for (const value of values) {
+
+    const d =
+      value - mean;
+
+    sum += d * d;
+
+  }
+
+  return Math.sqrt(
+    sum / values.length
+  );
+
+}
+
+
+/* AVERAGE */
+
+function average(values) {
+
+  if (values.length === 0) {
+    return 0;
+  }
+
+  return values.reduce(
+    (a, b) => a + b,
+    0
+  ) / values.length;
+
+}
+
+
+/* BASELINE */
 
 function removeBaseline(
   samples,
@@ -1351,9 +1273,7 @@ function removeBaseline(
   const result = [];
 
   const half =
-    Math.floor(
-      windowSize / 2
-    );
+    Math.floor(windowSize / 2);
 
 
   for (
@@ -1366,10 +1286,7 @@ function removeBaseline(
     let count = 0;
 
     const start =
-      Math.max(
-        0,
-        i - half
-      );
+      Math.max(0, i - half);
 
     const end =
       Math.min(
@@ -1403,28 +1320,21 @@ function removeBaseline(
 }
 
 
-/* =========================
-   CENTER
-========================= */
+/* CENTER */
 
 function centerSignal(samples) {
 
   const mean =
-    average(
-      samples
-    );
+    average(samples);
 
   return samples.map(
-    value =>
-      value - mean
+    value => value - mean
   );
 
 }
 
 
-/* =========================
-   SMOOTH
-========================= */
+/* SMOOTH */
 
 function smoothSignal(
   samples,
@@ -1445,18 +1355,8 @@ function smoothSignal(
 
 
     for (
-      let j =
-        Math.max(
-          0,
-          i - radius
-        );
-
-      j <=
-        Math.min(
-          samples.length - 1,
-          i + radius
-        );
-
+      let j = Math.max(0, i - radius);
+      j <= Math.min(samples.length - 1, i + radius);
       j++
     ) {
 
@@ -1478,13 +1378,9 @@ function smoothSignal(
 }
 
 
-/* =========================
-   HANN
-========================= */
+/* HANN */
 
-function applyHannWindow(
-  samples
-) {
+function applyHannWindow(samples) {
 
   const n =
     samples.length;
@@ -1506,10 +1402,7 @@ function applyHannWindow(
         );
 
 
-      return (
-        value *
-        weight
-      );
+      return value * weight;
 
     }
   );
@@ -1517,10 +1410,7 @@ function applyHannWindow(
 }
 
 
-/* =========================
-   SPECTRUM
-   実タイムスタンプ使用
-========================= */
+/* SPECTRUM */
 
 function calculateSpectrum(
   samples,
@@ -1558,8 +1448,7 @@ function calculateSpectrum(
         (
           times[i] -
           timeOrigin
-        ) /
-        1000;
+        ) / 1000;
 
 
       const angle =
@@ -1600,9 +1489,7 @@ function calculateSpectrum(
 }
 
 
-/* =========================
-   BEAT TRACKER
-========================= */
+/* BEAT TRACKER */
 
 function trackBeats(
   signal,
@@ -1612,9 +1499,7 @@ function trackBeats(
 
   const beatTimes = [];
 
-  if (
-    signal.length < 20
-  ) {
+  if (signal.length < 20) {
 
     return {
       beatTimes
@@ -1624,14 +1509,12 @@ function trackBeats(
 
 
   const expectedInterval =
-    60000 /
-    expectedBPM;
+    60000 / expectedBPM;
 
 
   const firstEndTime =
     times[0] +
-    expectedInterval *
-    1.3;
+    expectedInterval * 1.3;
 
 
   let firstIndex = -1;
@@ -1644,37 +1527,26 @@ function trackBeats(
     i++
   ) {
 
-    if (
-      times[i] >
-      firstEndTime
-    ) {
+    if (times[i] > firstEndTime) {
       break;
     }
 
 
     if (
-      signal[i] >
-        signal[i - 1] &&
-      signal[i] >=
-        signal[i + 1] &&
-      signal[i] >
-        firstValue
+      signal[i] > signal[i - 1] &&
+      signal[i] >= signal[i + 1] &&
+      signal[i] > firstValue
     ) {
 
-      firstValue =
-        signal[i];
-
-      firstIndex =
-        i;
+      firstValue = signal[i];
+      firstIndex = i;
 
     }
 
   }
 
 
-  if (
-    firstIndex < 0
-  ) {
+  if (firstIndex < 0) {
 
     return {
       beatTimes
@@ -1691,19 +1563,14 @@ function trackBeats(
     );
 
 
-  beatTimes.push(
-    firstBeat
-  );
-
+  beatTimes.push(firstBeat);
 
   let lastBeatTime =
     firstBeat;
 
 
   const amplitude =
-    signalAmplitude(
-      signal
-    );
+    signalAmplitude(signal);
 
 
   while (true) {
@@ -1715,21 +1582,17 @@ function trackBeats(
 
     const searchStart =
       predicted -
-      expectedInterval *
-      0.35;
+      expectedInterval * 0.35;
 
 
     const searchEnd =
       predicted +
-      expectedInterval *
-      0.35;
+      expectedInterval * 0.35;
 
 
     if (
       searchStart >
-      times[
-        times.length - 2
-      ]
+      times[times.length - 2]
     ) {
       break;
     }
@@ -1745,27 +1608,18 @@ function trackBeats(
       i++
     ) {
 
-      if (
-        times[i] <
-        searchStart
-      ) {
+      if (times[i] < searchStart) {
         continue;
       }
 
-
-      if (
-        times[i] >
-        searchEnd
-      ) {
+      if (times[i] > searchEnd) {
         break;
       }
 
 
       const isPeak =
-        signal[i] >
-          signal[i - 1] &&
-        signal[i] >=
-          signal[i + 1];
+        signal[i] > signal[i - 1] &&
+        signal[i] >= signal[i + 1];
 
 
       if (!isPeak) {
@@ -1775,18 +1629,14 @@ function trackBeats(
 
       const timingError =
         Math.abs(
-          times[i] -
-          predicted
+          times[i] - predicted
         ) /
         expectedInterval;
 
 
       const timingWeight =
         1 -
-        Math.min(
-          timingError,
-          1
-        );
+        Math.min(timingError, 1);
 
 
       const score =
@@ -1796,28 +1646,18 @@ function trackBeats(
         0.25;
 
 
-      if (
-        score >
-        bestScore
-      ) {
+      if (score > bestScore) {
 
-        bestScore =
-          score;
-
-        bestIndex =
-          i;
+        bestScore = score;
+        bestIndex = i;
 
       }
 
     }
 
 
-    if (
-      bestIndex < 0
-    ) {
-
+    if (bestIndex < 0) {
       break;
-
     }
 
 
@@ -1832,19 +1672,13 @@ function trackBeats(
     if (
       refinedTime -
       lastBeatTime <
-      expectedInterval *
-      0.60
+      expectedInterval * 0.60
     ) {
-
       break;
-
     }
 
 
-    beatTimes.push(
-      refinedTime
-    );
-
+    beatTimes.push(refinedTime);
 
     lastBeatTime =
       refinedTime;
@@ -1859,9 +1693,7 @@ function trackBeats(
 }
 
 
-/* =========================
-   SUB-FRAME PEAK TIME
-========================= */
+/* PEAK INTERPOLATION */
 
 function refinePeakTime(
   signal,
@@ -1871,8 +1703,7 @@ function refinePeakTime(
 
   if (
     i <= 0 ||
-    i >=
-      signal.length - 1
+    i >= signal.length - 1
   ) {
 
     return times[i];
@@ -1880,14 +1711,9 @@ function refinePeakTime(
   }
 
 
-  const y1 =
-    signal[i - 1];
-
-  const y2 =
-    signal[i];
-
-  const y3 =
-    signal[i + 1];
+  const y1 = signal[i - 1];
+  const y2 = signal[i];
+  const y3 = signal[i + 1];
 
 
   const denominator =
@@ -1900,17 +1726,13 @@ function refinePeakTime(
 
 
   if (
-    Math.abs(
-      denominator
-    ) >
+    Math.abs(denominator) >
     0.0000001
   ) {
 
     offset =
       0.5 *
-      (
-        y1 - y3
-      ) /
+      (y1 - y3) /
       denominator;
 
   }
@@ -1919,16 +1741,11 @@ function refinePeakTime(
   offset =
     Math.max(
       -0.5,
-      Math.min(
-        0.5,
-        offset
-      )
+      Math.min(0.5, offset)
     );
 
 
-  if (
-    offset >= 0
-  ) {
+  if (offset >= 0) {
 
     return (
       times[i] +
@@ -1954,9 +1771,7 @@ function refinePeakTime(
 }
 
 
-/* =========================
-   SIGNAL AMPLITUDE
-========================= */
+/* SIGNAL AMPLITUDE */
 
 function signalAmplitude(signal) {
 
@@ -1964,31 +1779,20 @@ function signalAmplitude(signal) {
   let max = -Infinity;
 
 
-  for (
-    const value of signal
-  ) {
+  for (const value of signal) {
 
-    if (value < min) {
-      min = value;
-    }
-
-    if (value > max) {
-      max = value;
-    }
+    if (value < min) min = value;
+    if (value > max) max = value;
 
   }
 
 
-  return (
-    max - min
-  );
+  return max - min;
 
 }
 
 
-/* =========================
-   PPI CLEANING
-========================= */
+/* PPI CLEANING */
 
 function cleanIntervals(
   intervals,
@@ -1996,18 +1800,15 @@ function cleanIntervals(
 ) {
 
   const expected =
-    60000 /
-    bpm;
+    60000 / bpm;
 
 
   const lower =
-    expected *
-    0.70;
+    expected * 0.70;
 
 
   const upper =
-    expected *
-    1.30;
+    expected * 1.30;
 
 
   const accepted = [];
@@ -2015,18 +1816,14 @@ function cleanIntervals(
   let rejected = 0;
 
 
-  for (
-    const value of intervals
-  ) {
+  for (const value of intervals) {
 
     if (
       value >= lower &&
       value <= upper
     ) {
 
-      accepted.push(
-        value
-      );
+      accepted.push(value);
 
     }
 
@@ -2039,37 +1836,26 @@ function cleanIntervals(
   }
 
 
-  if (
-    accepted.length >= 5
-  ) {
+  if (accepted.length >= 5) {
 
     const med =
-      median(
-        accepted
-      );
+      median(accepted);
 
 
     const finalAccepted = [];
 
 
-    for (
-      const value of accepted
-    ) {
+    for (const value of accepted) {
 
       const deviation =
         Math.abs(
           value - med
-        ) /
-        med;
+        ) / med;
 
 
-      if (
-        deviation <= 0.20
-      ) {
+      if (deviation <= 0.20) {
 
-        finalAccepted.push(
-          value
-        );
+        finalAccepted.push(value);
 
       }
 
@@ -2083,9 +1869,7 @@ function cleanIntervals(
 
 
     return {
-      accepted:
-        finalAccepted,
-
+      accepted: finalAccepted,
       rejected
     };
 
@@ -2100,29 +1884,20 @@ function cleanIntervals(
 }
 
 
-/* =========================
-   MEDIAN
-========================= */
+/* MEDIAN */
 
 function median(values) {
 
   const sorted =
     [...values]
-    .sort(
-      (a, b) =>
-        a - b
-    );
+      .sort((a, b) => a - b);
 
 
   const middle =
-    Math.floor(
-      sorted.length / 2
-    );
+    Math.floor(sorted.length / 2);
 
 
-  if (
-    sorted.length % 2 === 0
-  ) {
+  if (sorted.length % 2 === 0) {
 
     return (
       sorted[middle - 1] +
@@ -2137,17 +1912,11 @@ function median(values) {
 }
 
 
-/* =========================
-   RMSSD
-========================= */
+/* RMSSD */
 
-function calculateRMSSD(
-  intervals
-) {
+function calculateRMSSD(intervals) {
 
-  if (
-    intervals.length < 2
-  ) {
+  if (intervals.length < 2) {
     return null;
   }
 
@@ -2170,47 +1939,35 @@ function calculateRMSSD(
     sumSquares +=
       diff * diff;
 
-
     count++;
 
   }
 
 
   return Math.sqrt(
-    sumSquares /
-    count
+    sumSquares / count
   );
 
 }
 
 
-/* =========================
-   SDNN
-========================= */
+/* SDNN */
 
-function calculateSDNN(
-  intervals
-) {
+function calculateSDNN(intervals) {
 
-  if (
-    intervals.length < 2
-  ) {
+  if (intervals.length < 2) {
     return 0;
   }
 
 
   const mean =
-    average(
-      intervals
-    );
+    average(intervals);
 
 
   let sumSquares = 0;
 
 
-  for (
-    const value of intervals
-  ) {
+  for (const value of intervals) {
 
     sumSquares +=
       Math.pow(
@@ -2223,39 +1980,30 @@ function calculateSDNN(
 
   return Math.sqrt(
     sumSquares /
-    (
-      intervals.length - 1
-    )
+    (intervals.length - 1)
   );
 
 }
 
 
-/* =========================
-   CANVAS
-========================= */
+/* CANVAS */
 
 function prepareCanvas(canvas) {
 
   const ratio =
-    window.devicePixelRatio ||
-    1;
+    window.devicePixelRatio || 1;
 
 
   canvas.width =
-    canvas.clientWidth *
-    ratio;
+    canvas.clientWidth * ratio;
 
 
   canvas.height =
-    canvas.clientHeight *
-    ratio;
+    canvas.clientHeight * ratio;
 
 
   const ctx =
-    canvas.getContext(
-      "2d"
-    );
+    canvas.getContext("2d");
 
 
   ctx.clearRect(
@@ -2271,9 +2019,7 @@ function prepareCanvas(canvas) {
 }
 
 
-/* =========================
-   SIGNAL GRAPH
-========================= */
+/* SIGNAL GRAPH */
 
 function drawSignalGraph(
   canvas,
@@ -2283,31 +2029,22 @@ function drawSignalGraph(
 ) {
 
   const ctx =
-    prepareCanvas(
-      canvas
-    );
+    prepareCanvas(canvas);
 
 
-  if (
-    samples.length < 2
-  ) return;
+  if (samples.length < 2) return;
 
 
   const min =
-    Math.min(
-      ...samples
-    );
+    Math.min(...samples);
 
 
   const max =
-    Math.max(
-      ...samples
-    );
+    Math.max(...samples);
 
 
   const range =
-    max - min ||
-    1;
+    max - min || 1;
 
 
   const width =
@@ -2319,8 +2056,7 @@ function drawSignalGraph(
 
 
   const padding =
-    height *
-    0.08;
+    height * 0.08;
 
 
   ctx.beginPath();
@@ -2331,17 +2067,12 @@ function drawSignalGraph(
 
       const x =
         index /
-        (
-          samples.length - 1
-        ) *
+        (samples.length - 1) *
         width;
 
 
       const normalized =
-        (
-          value - min
-        ) /
-        range;
+        (value - min) / range;
 
 
       const y =
@@ -2354,23 +2085,15 @@ function drawSignalGraph(
         );
 
 
-      if (
-        index === 0
-      ) {
+      if (index === 0) {
 
-        ctx.moveTo(
-          x,
-          y
-        );
+        ctx.moveTo(x, y);
 
       }
 
       else {
 
-        ctx.lineTo(
-          x,
-          y
-        );
+        ctx.lineTo(x, y);
 
       }
 
@@ -2380,10 +2103,7 @@ function drawSignalGraph(
 
   ctx.lineWidth =
     2 *
-    (
-      window.devicePixelRatio ||
-      1
-    );
+    (window.devicePixelRatio || 1);
 
 
   ctx.stroke();
@@ -2399,24 +2119,18 @@ function drawSignalGraph(
 
 
     const lastTime =
-      times[
-        times.length - 1
-      ];
+      times[times.length - 1];
 
 
     const totalTime =
-      lastTime -
-      firstTime;
+      lastTime - firstTime;
 
 
-    for (
-      const beatTime of beatTimes
-    ) {
+    for (const beatTime of beatTimes) {
 
       const x =
         (
-          beatTime -
-          firstTime
+          beatTime - firstTime
         ) /
         totalTime *
         width;
@@ -2424,26 +2138,12 @@ function drawSignalGraph(
 
       ctx.beginPath();
 
-
-      ctx.moveTo(
-        x,
-        0
-      );
-
-
-      ctx.lineTo(
-        x,
-        height
-      );
-
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
 
       ctx.lineWidth =
         0.7 *
-        (
-          window.devicePixelRatio ||
-          1
-        );
-
+        (window.devicePixelRatio || 1);
 
       ctx.stroke();
 
@@ -2454,9 +2154,7 @@ function drawSignalGraph(
 }
 
 
-/* =========================
-   SPECTRUM GRAPH
-========================= */
+/* SPECTRUM GRAPH */
 
 function drawSpectrumGraph(
   canvas,
@@ -2464,14 +2162,10 @@ function drawSpectrumGraph(
 ) {
 
   const ctx =
-    prepareCanvas(
-      canvas
-    );
+    prepareCanvas(canvas);
 
 
-  if (
-    spectrum.length < 2
-  ) return;
+  if (spectrum.length < 2) return;
 
 
   const maxPower =
@@ -2491,8 +2185,7 @@ function drawSpectrumGraph(
 
 
   const padding =
-    height *
-    0.08;
+    height * 0.08;
 
 
   ctx.beginPath();
@@ -2503,9 +2196,7 @@ function drawSpectrumGraph(
 
       const x =
         index /
-        (
-          spectrum.length - 1
-        ) *
+        (spectrum.length - 1) *
         width;
 
 
@@ -2522,23 +2213,15 @@ function drawSpectrumGraph(
         );
 
 
-      if (
-        index === 0
-      ) {
+      if (index === 0) {
 
-        ctx.moveTo(
-          x,
-          y
-        );
+        ctx.moveTo(x, y);
 
       }
 
       else {
 
-        ctx.lineTo(
-          x,
-          y
-        );
+        ctx.lineTo(x, y);
 
       }
 
@@ -2548,10 +2231,7 @@ function drawSpectrumGraph(
 
   ctx.lineWidth =
     2 *
-    (
-      window.devicePixelRatio ||
-      1
-    );
+    (window.devicePixelRatio || 1);
 
 
   ctx.stroke();
