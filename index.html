@@ -989,7 +989,7 @@ function finishMeasurement() {
     meanPPI !== null
       ? Math.round(meanPPI)
       : "---";
-
+try {
 const historyItem = {
   datetime: new Date().toISOString(),
   time: selectedTime,
@@ -1057,6 +1057,10 @@ if (bpmDiff >= 8) {
 }
 historyInfo.textContent =
     `測定履歴：${history.length}回保存 ／ あなた比の比較が可能です`;
+}
+} catch (historyError) {
+  console.error("履歴・あなた比処理エラー:", historyError);
+  historyInfo.textContent = "履歴・あなた比の処理でエラーが発生しました。測定結果には影響しません。";
 }
 
   rmssdValue.textContent =
