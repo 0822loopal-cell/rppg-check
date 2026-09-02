@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>rPPG CHECK</title>
+
+<style>
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background: #f5f7fa;
+  color: #222;
+  text-align: center;
+}
+
+h1 {
+  margin-top: 16px;
+  font-size: 30px;
+}
+
+p {
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+button {
+  margin: 10px 5px;
+  padding: 14px 22px;
+  font-size: 17px;
+  font-weight: bold;
+  border: none;
+  border-radius: 12px;
+  background: #111;
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.45;
+}
+
+#videoWrap {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 18px auto 0;
+  display: none;
+  touch-action: none;
+}
+
+video {
+  width: 100%;
+  border-radius: 16px;
+  background: #000;
+  transform: scaleX(-1);
+  display: block;
+}
+
+#roi {
+  position: absolute;
+  left: 38%;
+  top: 20%;
+  width: 24%;
+  height: 9%;
+  border: 3px solid white;
+  border-radius: 10px;
+  box-sizing: border-box;
+  touch-action: none;
+  background: rgba(255,255,255,0.08);
+}
+
+#roi::after {
+  content: "額に合わせる";
+  position: absolute;
+  left: 50%;
+  top: -27px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  background: rgba(0,0,0,0.55);
+  padding: 3px 6px;
+  border-radius: 5px;
+}
+
+#status {
+  margin: 15px auto;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+#countdown {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 10px;
+}
+
+#rgbBox,
+#resultBox,
+.graphBox {
+  display: none;
+  max-width: 420px;
+  margin: 16px auto;
+  padding: 16px;
+  background: white;
+  border-radius: 16px;
+  box-sizing: border-box;
+}
+
+.rgb {
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1.7;
+}
+
+#bpmValue {
+  font-size: 52px;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+#bpmUnit {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+#quality {
+  margin-top: 12px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.graph {
+  width: 100%;
+  height: 165px;
+  background: #fafafa;
+  border-radius: 10px;
+}
+
+.small {
+  font-size: 13px;
+  color: #666;
+}
+
+#sourceCanvas {
+  display: none;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>rPPG CHECK</h1>
+
+<p>簡易コンディション測定 Ver.5</p>
+
+<p>
+白い枠を額中央の皮膚に合わせ、<br>
+できるだけ動かずに20秒間測定します。
+</p>
+
+<button id="cameraButton">カメラを起動</button>
+<button id="measureButton" disabled>20秒測定</button>
+
+<div id="status">
+カメラはまだ起動していません。
+</div>
+
+<div id="countdown"></div>
+
+<div id="videoWrap">
+  <video
+    id="video"
+    autoplay
+    playsinline
+    muted>
+  </video>
+
+  <div id="roi"></div>
+</div>
+
+<div id="rgbBox">
+
+  <div class="rgb">
+    R：<span id="rValue">---</span><br>
+    G：<span id="gValue">---</span><br>
+    B：<span id="bValue">---</span>
+  </div>
+
+</div>
+
+<div id="resultBox">
+
+  <strong>
+    周波数解析による推定心拍数
+  </strong>
+
+  <div id="bpmValue">---</div>
+  <div id="bpmUnit">bpm</div>
+
+  <div id="quality"></div>
+
+  <p id="analysisInfo" class="small"></p>
+
+  <p class="small">
+    カメラ映像から算出した試験的な推定値です。<br>
+    医療機器による測定値ではありません。
+  </p>
+
+</div>
+
+<div id="filteredBox" class="graphBox">
+
+  <strong>
+    基線除去後のG信号
+  </strong>
+
+  <canvas
+    id="filteredGraph"
+    class="graph">
+  </canvas>
+
+</div>
+
+<div id="spectrumBox" class="graphBox">
+
+  <strong>
+    心拍周波数スペクトル
+  </strong>
+
+  <canvas
+    id="spectrumGraph"
+    class="graph">
+  </canvas>
+
+  <p class="small">
+    横軸：40〜180 bpm<br>
+    最も強い周期成分を探索します。
+  </p>
+
+</div>
+
+<canvas id="sourceCanvas"></canvas>
+
+<script>
+
+const cameraButton =
+  document.getElementById("cameraButton");
+
+const measureButton =
+  document.getElementById("measureButton");
+
+const video =
+  document.getElementById("video");
+
+const videoWrap =
+  document.getElementById("videoWrap");
+
+const roi =
+  document.getElementById("roi");
+
+const statusText =
+  document.getElementById("status");
+
+const countdown =
+  document.getElementById("countdown");
+
+const rgbBox =
+  document.getElementById("rgbBox");
+
+const resultBox =
+  document.getElementById("resultBox");
+
+const filteredBox =
+  document.getElementById("filteredBox");
+
+const spectrumBox =
+  document.getElementById("spectrumBox");
+
+const rValue =
+  document.getElementById("rValue");
+
+const gValue =
+  document.getElementById("gValue");
+
+const bValue =
+  document.getElementById("bValue");
+
+const bpmValue =
+  document.getElementById("bpmValue");
+
+const quality =
+  document.getElementById("quality");
+
+const analysisInfo =
+  document.getElementById("analysisInfo");
+
+const sourceCanvas =
+  document.getElementById("sourceCanvas");
+
+const sourceCtx =
+  sourceCanvas.getContext(
+    "2d",
+    { willReadFrequently: true }
+  );
+
+const filteredGraph =
+  document.getElementById("filteredGraph");
+
+const spectrumGraph =
+  document.getElementById("spectrumGraph");
+
+
+let dragging = false;
+
+let offsetX = 0;
+let offsetY = 0;
+
+let previewTimer = null;
+let measurementTimer = null;
+let countdownTimer = null;
+
+let gSamples = [];
+let sampleTimes = [];
+
+let measuring = false;
+
+
+/* -------------------------
+   CAMERA
+------------------------- */
+
+cameraButton.addEventListener(
+  "click",
+  async () => {
+
+    try {
+
+      statusText.textContent =
+        "カメラを起動しています…";
+
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+
+          video: {
+
+            facingMode: "user",
+
+            frameRate: {
+              ideal: 30
+            }
+
+          },
+
+          audio: false
+
+        });
+
+      video.srcObject = stream;
+
+      videoWrap.style.display =
+        "block";
+
+      rgbBox.style.display =
+        "block";
+
+      cameraButton.disabled =
+        true;
+
+      cameraButton.textContent =
+        "カメラ起動済み";
+
+      video.addEventListener(
+        "loadedmetadata",
+        () => {
+
+          sourceCanvas.width =
+            video.videoWidth;
+
+          sourceCanvas.height =
+            video.videoHeight;
+
+          statusText.textContent =
+            "白い枠を額中央へ合わせてください。";
+
+          measureButton.disabled =
+            false;
+
+          startPreview();
+
+        },
+        { once: true }
+      );
+
+    }
+
+    catch (error) {
+
+      console.error(error);
+
+      statusText.textContent =
+        "カメラを起動できませんでした。";
+
+    }
+
+  }
+);
+
+
+/* -------------------------
+   ROI DRAG
+------------------------- */
+
+roi.addEventListener(
+  "pointerdown",
+  event => {
+
+    dragging = true;
+
+    const rect =
+      roi.getBoundingClientRect();
+
+    offsetX =
+      event.clientX -
+      rect.left;
+
+    offsetY =
+      event.clientY -
+      rect.top;
+
+    roi.setPointerCapture(
+      event.pointerId
+    );
+
+  }
+);
+
+
+roi.addEventListener(
+  "pointermove",
+  event => {
+
+    if (
+      !dragging ||
+      measuring
+    ) return;
+
+    const wrapRect =
+      videoWrap.getBoundingClientRect();
+
+    let x =
+      event.clientX -
+      wrapRect.left -
+      offsetX;
+
+    let y =
+      event.clientY -
+      wrapRect.top -
+      offsetY;
+
+    const maxX =
+      videoWrap.clientWidth -
+      roi.offsetWidth;
+
+    const maxY =
+      videoWrap.clientHeight -
+      roi.offsetHeight;
+
+    x =
+      Math.max(
+        0,
+        Math.min(x, maxX)
+      );
+
+    y =
+      Math.max(
+        0,
+        Math.min(y, maxY)
+      );
+
+    roi.style.left =
+      (
+        x /
+        videoWrap.clientWidth *
+        100
+      ) + "%";
+
+    roi.style.top =
+      (
+        y /
+        videoWrap.clientHeight *
+        100
+      ) + "%";
+
+  }
+);
+
+
+roi.addEventListener(
+  "pointerup",
+  () => {
+
+    dragging = false;
+
+  }
+);
+
+
+roi.addEventListener(
+  "pointercancel",
+  () => {
+
+    dragging = false;
+
+  }
+);
+
+
+/* -------------------------
+   RGB
+------------------------- */
+
+function getRGB() {
+
+  if (
+    video.readyState < 2 ||
+    video.videoWidth === 0
+  ) {
+
+    return null;
+
+  }
+
+  sourceCtx.drawImage(
+    video,
+    0,
+    0,
+    sourceCanvas.width,
+    sourceCanvas.height
+  );
+
+  const videoRect =
+    video.getBoundingClientRect();
+
+  const roiRect =
+    roi.getBoundingClientRect();
+
+  const displayX =
+    (
+      roiRect.left -
+      videoRect.left
+    ) /
+    videoRect.width;
+
+  const displayY =
+    (
+      roiRect.top -
+      videoRect.top
+    ) /
+    videoRect.height;
+
+  const displayW =
+    roiRect.width /
+    videoRect.width;
+
+  const displayH =
+    roiRect.height /
+    videoRect.height;
+
+  /*
+    プレビューは左右反転しているので
+    Canvas側のX座標を反転。
+  */
+
+  const sourceX =
+    1 -
+    displayX -
+    displayW;
+
+  let x =
+    Math.floor(
+      sourceX *
+      sourceCanvas.width
+    );
+
+  let y =
+    Math.floor(
+      displayY *
+      sourceCanvas.height
+    );
+
+  let w =
+    Math.floor(
+      displayW *
+      sourceCanvas.width
+    );
+
+  let h =
+    Math.floor(
+      displayH *
+      sourceCanvas.height
+    );
+
+  x =
+    Math.max(0, x);
+
+  y =
+    Math.max(0, y);
+
+  w =
+    Math.min(
+      w,
+      sourceCanvas.width - x
+    );
+
+  h =
+    Math.min(
+      h,
+      sourceCanvas.height - y
+    );
+
+  if (
+    w <= 0 ||
+    h <= 0
+  ) return null;
+
+  const image =
+    sourceCtx.getImageData(
+      x,
+      y,
+      w,
+      h
+    );
+
+  const data =
+    image.data;
+
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let count = 0;
+
+  for (
+    let i = 0;
+    i < data.length;
+    i += 16
+  ) {
+
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+
+    count++;
+
+  }
+
+  if (
+    count === 0
+  ) return null;
+
+  return {
+
+    r: r / count,
+    g: g / count,
+    b: b / count
+
+  };
+
+}
+
+
+/* -------------------------
+   RGB PREVIEW
+------------------------- */
+
+function startPreview() {
+
+  if (
+    previewTimer
+  ) {
+
+    clearInterval(
+      previewTimer
+    );
+
+  }
+
+  previewTimer =
+    setInterval(
+      () => {
+
+        const rgb =
+          getRGB();
+
+        if (!rgb) return;
+
+        rValue.textContent =
+          rgb.r.toFixed(1);
+
+        gValue.textContent =
+          rgb.g.toFixed(1);
+
+        bValue.textContent =
+          rgb.b.toFixed(1);
+
+      },
+      100
+    );
+
+}
+
+
+/* -------------------------
+   MEASUREMENT
+------------------------- */
+
+measureButton.addEventListener(
+  "click",
+  () => {
+
+    if (measuring) return;
+
+    measuring = true;
+
+    measureButton.disabled =
+      true;
+
+    gSamples = [];
+    sampleTimes = [];
+
+    resultBox.style.display =
+      "none";
+
+    filteredBox.style.display =
+      "none";
+
+    spectrumBox.style.display =
+      "none";
+
+    statusText.textContent =
+      "測定中です。できるだけ動かないでください。";
+
+    let seconds = 20;
+
+    countdown.textContent =
+      seconds + " 秒";
+
+    const startTime =
+      performance.now();
+
+    countdownTimer =
+      setInterval(
+        () => {
+
+          seconds--;
+
+          if (
+            seconds > 0
+          ) {
+
+            countdown.textContent =
+              seconds + " 秒";
+
+          }
+
+          else {
+
+            countdown.textContent =
+              "測定完了";
+
+            clearInterval(
+              countdownTimer
+            );
+
+          }
+
+        },
+        1000
+      );
+
+
+    measurementTimer =
+      setInterval(
+        () => {
+
+          const rgb =
+            getRGB();
+
+          if (!rgb) return;
+
+          gSamples.push(
+            rgb.g
+          );
+
+          sampleTimes.push(
+            performance.now() -
+            startTime
+          );
+
+        },
+        33
+      );
+
+
+    setTimeout(
+      finishMeasurement,
+      20000
+    );
+
+  }
+);
+
+
+/* -------------------------
+   FINISH
+------------------------- */
+
+function finishMeasurement() {
+
+  clearInterval(
+    measurementTimer
+  );
+
+  clearInterval(
+    countdownTimer
+  );
+
+  measuring = false;
+
+  measureButton.disabled =
+    false;
+
+  countdown.textContent =
+    "測定完了";
+
+  statusText.textContent =
+    "測定が完了しました。";
+
+  if (
+    gSamples.length < 100
+  ) {
+
+    bpmValue.textContent =
+      "---";
+
+    statusText.textContent =
+      "十分なデータを取得できませんでした。";
+
+    return;
+
+  }
+
+  const duration =
+    (
+      sampleTimes[
+        sampleTimes.length - 1
+      ] -
+      sampleTimes[0]
+    ) /
+    1000;
+
+  const sampleRate =
+    (
+      gSamples.length - 1
+    ) /
+    duration;
+
+
+  /*
+    最初の2秒を除外
+  */
+
+  const startIndex =
+    Math.floor(
+      sampleRate * 2
+    );
+
+  let signal =
+    gSamples.slice(
+      startIndex
+    );
+
+
+  /*
+    約1秒移動平均を
+    基線として除去
+  */
+
+  signal =
+    removeBaseline(
+      signal,
+      Math.max(
+        5,
+        Math.round(sampleRate)
+      )
+    );
+
+
+  /*
+    平均0へ
+  */
+
+  signal =
+    centerSignal(
+      signal
+    );
+
+
+  /*
+    軽い平滑化。
+    高周波ノイズを少し抑える。
+  */
+
+  signal =
+    smoothSignal(
+      signal,
+      3
+    );
+
+
+  /*
+    Hann窓を適用
+  */
+
+  const windowed =
+    applyHannWindow(
+      signal
+    );
+
+
+  /*
+    周波数解析
+    40〜180 bpm
+  */
+
+  const spectrum =
+    calculateSpectrum(
+      windowed,
+      sampleRate,
+      40,
+      180
+    );
+
+
+  if (
+    spectrum.length === 0
+  ) {
+
+    bpmValue.textContent =
+      "---";
+
+    return;
+
+  }
+
+
+  let strongest =
+    spectrum[0];
+
+  for (
+    const point of spectrum
+  ) {
+
+    if (
+      point.power >
+      strongest.power
+    ) {
+
+      strongest =
+        point;
+
+    }
+
+  }
+
+
+  /*
+    最大ピークと
+    周辺平均パワーを比較して
+    簡易的な信号品質を算出
+  */
+
+  const averagePower =
+    spectrum.reduce(
+      (sum, p) =>
+        sum + p.power,
+      0
+    ) /
+    spectrum.length;
+
+  const qualityRatio =
+    strongest.power /
+    Math.max(
+      averagePower,
+      0.0000001
+    );
+
+
+  const estimatedBPM =
+    strongest.bpm;
+
+
+  resultBox.style.display =
+    "block";
+
+  filteredBox.style.display =
+    "block";
+
+  spectrumBox.style.display =
+    "block";
+
+
+  bpmValue.textContent =
+    Math.round(
+      estimatedBPM
+    );
+
+
+  let qualityText;
+
+  if (
+    qualityRatio >= 5
+  ) {
+
+    qualityText =
+      "信号品質：良好";
+
+  }
+
+  else if (
+    qualityRatio >= 3
+  ) {
+
+    qualityText =
+      "信号品質：中程度";
+
+  }
+
+  else {
+
+    qualityText =
+      "信号品質：低い";
+
+  }
+
+
+  quality.textContent =
+    qualityText;
+
+
+  analysisInfo.textContent =
+    "平均サンプリング：" +
+    sampleRate.toFixed(1) +
+    " Hz ／ 周波数ピーク：" +
+    strongest.frequency.toFixed(2) +
+    " Hz ／ 品質指数：" +
+    qualityRatio.toFixed(1);
+
+
+  drawSignalGraph(
+    filteredGraph,
+    signal
+  );
+
+
+  drawSpectrumGraph(
+    spectrumGraph,
+    spectrum
+  );
+
+}
+
+
+/* -------------------------
+   BASELINE
+------------------------- */
+
+function removeBaseline(
+  samples,
+  windowSize
+) {
+
+  const result = [];
+
+  const half =
+    Math.floor(
+      windowSize / 2
+    );
+
+  for (
+    let i = 0;
+    i < samples.length;
+    i++
+  ) {
+
+    let sum = 0;
+    let count = 0;
+
+    const start =
+      Math.max(
+        0,
+        i - half
+      );
+
+    const end =
+      Math.min(
+        samples.length - 1,
+        i + half
+      );
+
+    for (
+      let j = start;
+      j <= end;
+      j++
+    ) {
+
+      sum +=
+        samples[j];
+
+      count++;
+
+    }
+
+    result.push(
+      samples[i] -
+      sum / count
+    );
+
+  }
+
+  return result;
+
+}
+
+
+/* -------------------------
+   CENTER
+------------------------- */
+
+function centerSignal(
+  samples
+) {
+
+  const mean =
+    samples.reduce(
+      (a, b) =>
+        a + b,
+      0
+    ) /
+    samples.length;
+
+  return samples.map(
+    value =>
+      value - mean
+  );
+
+}
+
+
+/* -------------------------
+   SMOOTH
+------------------------- */
+
+function smoothSignal(
+  samples,
+  radius
+) {
+
+  const result = [];
+
+  for (
+    let i = 0;
+    i < samples.length;
+    i++
+  ) {
+
+    let sum = 0;
+    let count = 0;
+
+    for (
+      let j =
+        Math.max(
+          0,
+          i - radius
+        );
+      j <=
+        Math.min(
+          samples.length - 1,
+          i + radius
+        );
+      j++
+    ) {
+
+      sum += samples[j];
+      count++;
+
+    }
+
+    result.push(
+      sum / count
+    );
+
+  }
+
+  return result;
+
+}
+
+
+/* -------------------------
+   HANN WINDOW
+------------------------- */
+
+function applyHannWindow(
+  samples
+) {
+
+  const n =
+    samples.length;
+
+  return samples.map(
+    (value, index) => {
+
+      const weight =
+        0.5 *
+        (
+          1 -
+          Math.cos(
+            2 *
+            Math.PI *
+            index /
+            (n - 1)
+          )
+        );
+
+      return value * weight;
+
+    }
+  );
+
+}
+
+
+/* -------------------------
+   FREQUENCY ANALYSIS
+------------------------- */
+
+function calculateSpectrum(
+  samples,
+  sampleRate,
+  minBPM,
+  maxBPM
+) {
+
+  const result = [];
+
+  const duration =
+    samples.length /
+    sampleRate;
+
+  /*
+    1 bpm刻みで探索。
+    DFT形式で対象帯域だけ計算。
+  */
+
+  for (
+    let bpm = minBPM;
+    bpm <= maxBPM;
+    bpm += 1
+  ) {
+
+    const frequency =
+      bpm / 60;
+
+    let real = 0;
+    let imag = 0;
+
+    for (
+      let i = 0;
+      i < samples.length;
+      i++
+    ) {
+
+      const t =
+        i /
+        sampleRate;
+
+      const angle =
+        2 *
+        Math.PI *
+        frequency *
+        t;
+
+      real +=
+        samples[i] *
+        Math.cos(angle);
+
+      imag -=
+        samples[i] *
+        Math.sin(angle);
+
+    }
+
+    const power =
+      real * real +
+      imag * imag;
+
+    result.push({
+
+      bpm,
+      frequency,
+      power
+
+    });
+
+  }
+
+  return result;
+
+}
+
+
+/* -------------------------
+   CANVAS
+------------------------- */
+
+function prepareCanvas(
+  canvas
+) {
+
+  const ratio =
+    window.devicePixelRatio ||
+    1;
+
+  canvas.width =
+    canvas.clientWidth *
+    ratio;
+
+  canvas.height =
+    canvas.clientHeight *
+    ratio;
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  return ctx;
+
+}
+
+
+/* -------------------------
+   SIGNAL GRAPH
+------------------------- */
+
+function drawSignalGraph(
+  canvas,
+  samples
+) {
+
+  const ctx =
+    prepareCanvas(
+      canvas
+    );
+
+  if (
+    samples.length < 2
+  ) return;
+
+  const min =
+    Math.min(
+      ...samples
+    );
+
+  const max =
+    Math.max(
+      ...samples
+    );
+
+  const range =
+    max - min || 1;
+
+  const width =
+    canvas.width;
+
+  const height =
+    canvas.height;
+
+  const padding =
+    height * 0.08;
+
+  ctx.beginPath();
+
+  samples.forEach(
+    (
+      value,
+      index
+    ) => {
+
+      const x =
+        index /
+        (
+          samples.length -
+          1
+        ) *
+        width;
+
+      const normalized =
+        (
+          value - min
+        ) /
+        range;
+
+      const y =
+        height -
+        padding -
+        normalized *
+        (
+          height -
+          padding * 2
+        );
+
+      if (
+        index === 0
+      ) {
+
+        ctx.moveTo(
+          x,
+          y
+        );
+
+      }
+
+      else {
+
+        ctx.lineTo(
+          x,
+          y
+        );
+
+      }
+
+    }
+  );
+
+  ctx.lineWidth =
+    2 *
+    (
+      window.devicePixelRatio ||
+      1
+    );
+
+  ctx.stroke();
+
+}
+
+
+/* -------------------------
+   SPECTRUM GRAPH
+------------------------- */
+
+function drawSpectrumGraph(
+  canvas,
+  spectrum
+) {
+
+  const ctx =
+    prepareCanvas(
+      canvas
+    );
+
+  if (
+    spectrum.length < 2
+  ) return;
+
+  const maxPower =
+    Math.max(
+      ...spectrum.map(
+        p => p.power
+      )
+    ) || 1;
+
+  const width =
+    canvas.width;
+
+  const height =
+    canvas.height;
+
+  const padding =
+    height * 0.08;
+
+  ctx.beginPath();
+
+  spectrum.forEach(
+    (
+      point,
+      index
+    ) => {
+
+      const x =
+        index /
+        (
+          spectrum.length -
+          1
+        ) *
+        width;
+
+      const y =
+        height -
+        padding -
+        (
+          point.power /
+          maxPower
+        ) *
+        (
+          height -
+          padding * 2
+        );
+
+      if (
+        index === 0
+      ) {
+
+        ctx.moveTo(
+          x,
+          y
+        );
+
+      }
+
+      else {
+
+        ctx.lineTo(
+          x,
+          y
+        );
+
+      }
+
+    }
+  );
+
+  ctx.lineWidth =
+    2 *
+    (
+      window.devicePixelRatio ||
+      1
+    );
+
+  ctx.stroke();
+
+}
+
+</script>
+
+</body>
+</html>
