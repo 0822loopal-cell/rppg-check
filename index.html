@@ -1,376 +1,659 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>rPPG CHECK</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rPPG CHECK</title>
 
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      margin: 0;
-      padding: 24px;
-      background: #f5f7fa;
-      color: #222;
-      text-align: center;
-    }
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background: #f5f7fa;
+  color: #222;
+  text-align: center;
+}
 
-    h1 {
-      margin-top: 20px;
-      font-size: 32px;
-    }
+h1 {
+  margin-top: 16px;
+  font-size: 30px;
+}
 
-    p {
-      font-size: 17px;
-      line-height: 1.6;
-    }
+p {
+  font-size: 16px;
+  line-height: 1.6;
+}
 
-    button {
-      margin-top: 20px;
-      padding: 16px 28px;
-      font-size: 18px;
-      font-weight: bold;
-      border: none;
-      border-radius: 12px;
-      background: #111;
-      color: white;
-    }
+button {
+  margin: 10px 5px;
+  padding: 14px 22px;
+  font-size: 17px;
+  font-weight: bold;
+  border: none;
+  border-radius: 12px;
+  background: #111;
+  color: white;
+}
 
-    #videoWrap {
-      position: relative;
-      width: 100%;
-      max-width: 420px;
-      margin: 24px auto 0;
-      display: none;
-      touch-action: none;
-    }
+button:disabled {
+  opacity: 0.45;
+}
 
-    video {
-      width: 100%;
-      border-radius: 16px;
-      background: #000;
-      transform: scaleX(-1);
-      display: block;
-    }
+#videoWrap {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 18px auto 0;
+  display: none;
+  touch-action: none;
+}
 
-    #roi {
-      position: absolute;
-      left: 38%;
-      top: 20%;
-      width: 24%;
-      height: 9%;
-      border: 3px solid white;
-      border-radius: 10px;
-      box-sizing: border-box;
-      cursor: grab;
-      touch-action: none;
-      background: rgba(255,255,255,0.08);
-    }
+video {
+  width: 100%;
+  border-radius: 16px;
+  background: #000;
+  transform: scaleX(-1);
+  display: block;
+}
 
-    #roi::after {
-      content: "額に移動";
-      position: absolute;
-      left: 50%;
-      top: -28px;
-      transform: translateX(-50%);
-      white-space: nowrap;
-      font-size: 13px;
-      font-weight: bold;
-      color: white;
-      background: rgba(0,0,0,0.55);
-      padding: 3px 7px;
-      border-radius: 6px;
-    }
+#roi {
+  position: absolute;
+  left: 38%;
+  top: 20%;
+  width: 24%;
+  height: 9%;
+  border: 3px solid white;
+  border-radius: 10px;
+  box-sizing: border-box;
+  touch-action: none;
+  background: rgba(255,255,255,0.08);
+}
 
-    #status {
-      margin-top: 18px;
-      font-size: 16px;
-    }
+#roi::after {
+  content: "額に合わせる";
+  position: absolute;
+  left: 50%;
+  top: -27px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  background: rgba(0,0,0,0.55);
+  padding: 3px 6px;
+  border-radius: 5px;
+}
 
-    #rgbBox {
-      display: none;
-      max-width: 420px;
-      margin: 20px auto;
-      padding: 18px;
-      background: white;
-      border-radius: 16px;
-    }
+#status {
+  margin: 15px auto;
+  font-size: 16px;
+  font-weight: bold;
+}
 
-    .rgb {
-      font-size: 20px;
-      font-weight: bold;
-      line-height: 1.8;
-    }
+#rgbBox,
+#graphBox {
+  display: none;
+  max-width: 420px;
+  margin: 16px auto;
+  padding: 16px;
+  background: white;
+  border-radius: 16px;
+  box-sizing: border-box;
+}
 
-    #note {
-      font-size: 14px;
-      color: #666;
-    }
+.rgb {
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1.7;
+}
 
-    canvas {
-      display: none;
-    }
-  </style>
+#countdown {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 10px;
+}
+
+#graph {
+  width: 100%;
+  height: 180px;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.small {
+  font-size: 13px;
+  color: #666;
+}
+
+#sourceCanvas {
+  display: none;
+}
+</style>
 </head>
 
 <body>
 
-  <h1>rPPG CHECK</h1>
+<h1>rPPG CHECK</h1>
 
-  <p>簡易コンディション測定 Ver.3.2</p>
+<p>簡易コンディション測定 Ver.4</p>
 
-  <p>
-    白い枠を指で動かし、<br>
-    額中央の皮膚に合わせてください。
+<p>
+白い枠を額中央の皮膚に合わせ、<br>
+できるだけ動かずに測定します。
+</p>
+
+<button id="cameraButton">カメラを起動</button>
+<button id="measureButton" disabled>20秒測定</button>
+
+<div id="status">カメラはまだ起動していません。</div>
+<div id="countdown"></div>
+
+<div id="videoWrap">
+  <video id="video" autoplay playsinline muted></video>
+  <div id="roi"></div>
+</div>
+
+<div id="rgbBox">
+  <div class="rgb">
+    R：<span id="rValue">---</span><br>
+    G：<span id="gValue">---</span><br>
+    B：<span id="bValue">---</span>
+  </div>
+</div>
+
+<div id="graphBox">
+  <strong>額ROI：G信号の時間変化</strong>
+  <canvas id="graph"></canvas>
+  <p class="small">
+    現段階では心拍数ではありません。<br>
+    額の緑色成分の時間変化を表示しています。
   </p>
+</div>
 
-  <button id="startButton">カメラを起動</button>
+<canvas id="sourceCanvas"></canvas>
 
-  <p id="status">カメラはまだ起動していません。</p>
+<script>
+const cameraButton = document.getElementById("cameraButton");
+const measureButton = document.getElementById("measureButton");
 
-  <div id="videoWrap">
-    <video id="video" autoplay playsinline muted></video>
-    <div id="roi"></div>
-  </div>
+const video = document.getElementById("video");
+const videoWrap = document.getElementById("videoWrap");
+const roi = document.getElementById("roi");
 
-  <div id="rgbBox">
-    <div class="rgb">
-      R：<span id="rValue">---</span><br>
-      G：<span id="gValue">---</span><br>
-      B：<span id="bValue">---</span>
-    </div>
+const statusText = document.getElementById("status");
+const countdown = document.getElementById("countdown");
 
-    <p id="note">
-      現在の白枠内の平均RGB値を表示しています。
-    </p>
-  </div>
+const rgbBox = document.getElementById("rgbBox");
+const graphBox = document.getElementById("graphBox");
 
-  <canvas id="canvas"></canvas>
+const rValue = document.getElementById("rValue");
+const gValue = document.getElementById("gValue");
+const bValue = document.getElementById("bValue");
 
-  <script>
-    const startButton = document.getElementById("startButton");
-    const video = document.getElementById("video");
-    const videoWrap = document.getElementById("videoWrap");
-    const roi = document.getElementById("roi");
-    const status = document.getElementById("status");
-    const rgbBox = document.getElementById("rgbBox");
+const sourceCanvas = document.getElementById("sourceCanvas");
 
-    const rValue = document.getElementById("rValue");
-    const gValue = document.getElementById("gValue");
-    const bValue = document.getElementById("bValue");
+const sourceCtx = sourceCanvas.getContext(
+  "2d",
+  { willReadFrequently: true }
+);
 
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d", {
-      willReadFrequently: true
-    });
+const graph = document.getElementById("graph");
+const graphCtx = graph.getContext("2d");
 
-    let timer = null;
+let dragging = false;
+let offsetX = 0;
+let offsetY = 0;
 
-    let dragging = false;
-    let offsetX = 0;
-    let offsetY = 0;
+let previewTimer = null;
+let measurementTimer = null;
+let countdownTimer = null;
 
-    startButton.addEventListener("click", async () => {
-      try {
-        status.textContent = "カメラを起動しています…";
+let gSamples = [];
+let measuring = false;
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user"
-          },
-          audio: false
-        });
+cameraButton.addEventListener("click", async () => {
+  try {
 
-        video.srcObject = stream;
+    statusText.textContent =
+      "カメラを起動しています…";
 
-        videoWrap.style.display = "block";
-        rgbBox.style.display = "block";
+    const stream =
+      await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          frameRate: { ideal: 30 }
+        },
+        audio: false
+      });
 
-        startButton.textContent = "カメラ起動済み";
-        startButton.disabled = true;
+    video.srcObject = stream;
 
-        video.addEventListener("loadedmetadata", () => {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+    videoWrap.style.display = "block";
+    rgbBox.style.display = "block";
 
-          status.textContent =
-            "白い枠を額中央へ動かしてください。";
+    cameraButton.disabled = true;
+    cameraButton.textContent = "カメラ起動済み";
 
-          startRGBReading();
+    video.addEventListener(
+      "loadedmetadata",
+      () => {
 
-        }, { once: true });
+        sourceCanvas.width =
+          video.videoWidth;
 
-      } catch (error) {
-        console.error(error);
+        sourceCanvas.height =
+          video.videoHeight;
 
-        status.textContent =
-          "カメラを起動できませんでした。カメラの使用を許可してください。";
+        statusText.textContent =
+          "白い枠を額中央へ合わせてください。";
+
+        measureButton.disabled = false;
+
+        startPreview();
+
+      },
+      { once: true }
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+    statusText.textContent =
+      "カメラを起動できませんでした。";
+  }
+});
+
+roi.addEventListener("pointerdown", event => {
+
+  dragging = true;
+
+  const rect =
+    roi.getBoundingClientRect();
+
+  offsetX =
+    event.clientX - rect.left;
+
+  offsetY =
+    event.clientY - rect.top;
+
+  roi.setPointerCapture(
+    event.pointerId
+  );
+});
+
+roi.addEventListener("pointermove", event => {
+
+  if (!dragging || measuring) return;
+
+  const wrapRect =
+    videoWrap.getBoundingClientRect();
+
+  let x =
+    event.clientX -
+    wrapRect.left -
+    offsetX;
+
+  let y =
+    event.clientY -
+    wrapRect.top -
+    offsetY;
+
+  const maxX =
+    videoWrap.clientWidth -
+    roi.offsetWidth;
+
+  const maxY =
+    videoWrap.clientHeight -
+    roi.offsetHeight;
+
+  x =
+    Math.max(
+      0,
+      Math.min(x, maxX)
+    );
+
+  y =
+    Math.max(
+      0,
+      Math.min(y, maxY)
+    );
+
+  roi.style.left =
+    (x /
+    videoWrap.clientWidth *
+    100) + "%";
+
+  roi.style.top =
+    (y /
+    videoWrap.clientHeight *
+    100) + "%";
+});
+
+roi.addEventListener(
+  "pointerup",
+  () => {
+    dragging = false;
+  }
+);
+
+roi.addEventListener(
+  "pointercancel",
+  () => {
+    dragging = false;
+  }
+);
+
+function getRGB() {
+
+  if (
+    video.readyState < 2 ||
+    video.videoWidth === 0
+  ) {
+    return null;
+  }
+
+  sourceCtx.drawImage(
+    video,
+    0,
+    0,
+    sourceCanvas.width,
+    sourceCanvas.height
+  );
+
+  const videoRect =
+    video.getBoundingClientRect();
+
+  const roiRect =
+    roi.getBoundingClientRect();
+
+  const displayX =
+    (roiRect.left -
+    videoRect.left) /
+    videoRect.width;
+
+  const displayY =
+    (roiRect.top -
+    videoRect.top) /
+    videoRect.height;
+
+  const displayW =
+    roiRect.width /
+    videoRect.width;
+
+  const displayH =
+    roiRect.height /
+    videoRect.height;
+
+  const sourceX =
+    1 -
+    displayX -
+    displayW;
+
+  let x =
+    Math.floor(
+      sourceX *
+      sourceCanvas.width
+    );
+
+  let y =
+    Math.floor(
+      displayY *
+      sourceCanvas.height
+    );
+
+  let w =
+    Math.floor(
+      displayW *
+      sourceCanvas.width
+    );
+
+  let h =
+    Math.floor(
+      displayH *
+      sourceCanvas.height
+    );
+
+  x = Math.max(0, x);
+  y = Math.max(0, y);
+
+  w =
+    Math.min(
+      w,
+      sourceCanvas.width - x
+    );
+
+  h =
+    Math.min(
+      h,
+      sourceCanvas.height - y
+    );
+
+  if (w <= 0 || h <= 0) {
+    return null;
+  }
+
+  const image =
+    sourceCtx.getImageData(
+      x, y, w, h
+    );
+
+  const data = image.data;
+
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let count = 0;
+
+  for (
+    let i = 0;
+    i < data.length;
+    i += 16
+  ) {
+
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+
+    count++;
+  }
+
+  if (count === 0) {
+    return null;
+  }
+
+  return {
+    r: r / count,
+    g: g / count,
+    b: b / count
+  };
+}
+
+function startPreview() {
+
+  if (previewTimer) {
+    clearInterval(previewTimer);
+  }
+
+  previewTimer =
+    setInterval(() => {
+
+      const rgb = getRGB();
+
+      if (!rgb) return;
+
+      rValue.textContent =
+        rgb.r.toFixed(1);
+
+      gValue.textContent =
+        rgb.g.toFixed(1);
+
+      bValue.textContent =
+        rgb.b.toFixed(1);
+
+    }, 100);
+}
+
+measureButton.addEventListener(
+  "click",
+  () => {
+
+    if (measuring) return;
+
+    measuring = true;
+
+    measureButton.disabled = true;
+
+    gSamples = [];
+
+    graphBox.style.display =
+      "block";
+
+    clearGraph();
+
+    statusText.textContent =
+      "測定中です。できるだけ動かないでください。";
+
+    let seconds = 20;
+
+    countdown.textContent =
+      seconds + " 秒";
+
+    countdownTimer =
+      setInterval(() => {
+
+        seconds--;
+
+        countdown.textContent =
+          seconds + " 秒";
+
+        if (seconds <= 0) {
+
+          clearInterval(
+            countdownTimer
+          );
+
+          countdown.textContent =
+            "測定完了";
+
+        }
+
+      }, 1000);
+
+    measurementTimer =
+      setInterval(() => {
+
+        const rgb = getRGB();
+
+        if (!rgb) return;
+
+        gSamples.push(rgb.g);
+
+      }, 33);
+
+    setTimeout(
+      finishMeasurement,
+      20000
+    );
+  }
+);
+
+function finishMeasurement() {
+
+  clearInterval(
+    measurementTimer
+  );
+
+  measuring = false;
+
+  measureButton.disabled = false;
+
+  statusText.textContent =
+    "測定が完了しました。";
+
+  drawGraph(gSamples);
+}
+
+function clearGraph() {
+
+  graph.width =
+    graph.clientWidth *
+    window.devicePixelRatio;
+
+  graph.height =
+    graph.clientHeight *
+    window.devicePixelRatio;
+
+  graphCtx.clearRect(
+    0,
+    0,
+    graph.width,
+    graph.height
+  );
+}
+
+function drawGraph(samples) {
+
+  clearGraph();
+
+  if (samples.length < 2) {
+    return;
+  }
+
+  const min =
+    Math.min(...samples);
+
+  const max =
+    Math.max(...samples);
+
+  const range =
+    max - min || 1;
+
+  const width =
+    graph.width;
+
+  const height =
+    graph.height;
+
+  graphCtx.beginPath();
+
+  samples.forEach(
+    (value, index) => {
+
+      const x =
+        index /
+        (samples.length - 1) *
+        width;
+
+      const y =
+        height -
+        ((value - min) /
+        range *
+        height);
+
+      if (index === 0) {
+
+        graphCtx.moveTo(
+          x, y
+        );
+
+      } else {
+
+        graphCtx.lineTo(
+          x, y
+        );
       }
-    });
-
-    roi.addEventListener("pointerdown", (event) => {
-      dragging = true;
-
-      const roiRect = roi.getBoundingClientRect();
-
-      offsetX = event.clientX - roiRect.left;
-      offsetY = event.clientY - roiRect.top;
-
-      roi.setPointerCapture(event.pointerId);
-    });
-
-    roi.addEventListener("pointermove", (event) => {
-      if (!dragging) return;
-
-      const wrapRect = videoWrap.getBoundingClientRect();
-
-      let newX =
-        event.clientX - wrapRect.left - offsetX;
-
-      let newY =
-        event.clientY - wrapRect.top - offsetY;
-
-      const maxX =
-        videoWrap.clientWidth - roi.offsetWidth;
-
-      const maxY =
-        videoWrap.clientHeight - roi.offsetHeight;
-
-      newX = Math.max(0, Math.min(newX, maxX));
-      newY = Math.max(0, Math.min(newY, maxY));
-
-      roi.style.left =
-        (newX / videoWrap.clientWidth * 100) + "%";
-
-      roi.style.top =
-        (newY / videoWrap.clientHeight * 100) + "%";
-    });
-
-    roi.addEventListener("pointerup", () => {
-      dragging = false;
-
-      status.textContent =
-        "現在の白枠内から色データを取得しています。";
-    });
-
-    roi.addEventListener("pointercancel", () => {
-      dragging = false;
-    });
-
-    function startRGBReading() {
-      if (timer) {
-        clearInterval(timer);
-      }
-
-      timer = setInterval(() => {
-        if (
-          video.readyState < 2 ||
-          video.videoWidth === 0 ||
-          video.videoHeight === 0
-        ) {
-          return;
-        }
-
-        ctx.drawImage(
-          video,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-
-        const videoRect = video.getBoundingClientRect();
-        const roiRect = roi.getBoundingClientRect();
-
-        const displayX =
-          (roiRect.left - videoRect.left) /
-          videoRect.width;
-
-        const displayY =
-          (roiRect.top - videoRect.top) /
-          videoRect.height;
-
-        const displayW =
-          roiRect.width /
-          videoRect.width;
-
-        const displayH =
-          roiRect.height /
-          videoRect.height;
-
-        /*
-          プレビュー映像は左右反転しているため、
-          Canvas側のX座標だけ反転して対応させます。
-        */
-        const sourceX =
-          1 - displayX - displayW;
-
-        let roiX =
-          Math.floor(sourceX * canvas.width);
-
-        let roiY =
-          Math.floor(displayY * canvas.height);
-
-        let roiW =
-          Math.floor(displayW * canvas.width);
-
-        let roiH =
-          Math.floor(displayH * canvas.height);
-
-        roiX = Math.max(0, roiX);
-        roiY = Math.max(0, roiY);
-
-        roiW = Math.min(
-          roiW,
-          canvas.width - roiX
-        );
-
-        roiH = Math.min(
-          roiH,
-          canvas.height - roiY
-        );
-
-        if (roiW <= 0 || roiH <= 0) return;
-
-        const imageData = ctx.getImageData(
-          roiX,
-          roiY,
-          roiW,
-          roiH
-        );
-
-        const data = imageData.data;
-
-        let r = 0;
-        let g = 0;
-        let b = 0;
-        let count = 0;
-
-        for (
-          let i = 0;
-          i < data.length;
-          i += 16
-        ) {
-          r += data[i];
-          g += data[i + 1];
-          b += data[i + 2];
-          count++;
-        }
-
-        if (count > 0) {
-          rValue.textContent =
-            (r / count).toFixed(1);
-
-          gValue.textContent =
-            (g / count).toFixed(1);
-
-          bValue.textContent =
-            (b / count).toFixed(1);
-        }
-
-      }, 200);
     }
-  </script>
+  );
+
+  graphCtx.lineWidth =
+    2 *
+    window.devicePixelRatio;
+
+  graphCtx.stroke();
+}
+</script>
 
 </body>
 </html>
