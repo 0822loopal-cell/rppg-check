@@ -54,10 +54,10 @@
 
     #roi {
       position: absolute;
-      left: 37%;
-      top: 30%;
-      width: 26%;
-      height: 10%;
+      left: 38%;
+      top: 21%;
+      width: 24%;
+      height: 9%;
       border: 3px solid white;
       border-radius: 10px;
       box-sizing: border-box;
@@ -99,11 +99,11 @@
 
   <h1>rPPG CHECK</h1>
 
-  <p>簡易コンディション測定 Ver.3</p>
+  <p>簡易コンディション測定 Ver.3.1</p>
 
   <p>
-    白い枠を額に合わせてください。<br>
-    枠内の色データを取得します。
+    白い枠に額中央の皮膚を合わせてください。<br>
+    メガネ・眉毛・髪が入らない位置が目安です。
   </p>
 
   <button id="startButton">カメラを起動</button>
@@ -141,6 +141,7 @@
     const bValue = document.getElementById("bValue");
 
     const canvas = document.getElementById("canvas");
+
     const ctx = canvas.getContext("2d", {
       willReadFrequently: true
     });
@@ -171,7 +172,7 @@
           canvas.height = video.videoHeight;
 
           status.textContent =
-            "額の色データを取得しています。";
+            "額中央の色データを取得しています。";
 
           startRGBReading();
         }, { once: true });
@@ -206,10 +207,10 @@
           canvas.height
         );
 
-        const roiX = Math.floor(canvas.width * 0.37);
-        const roiY = Math.floor(canvas.height * 0.30);
-        const roiW = Math.floor(canvas.width * 0.26);
-        const roiH = Math.floor(canvas.height * 0.10);
+        const roiX = Math.floor(canvas.width * 0.38);
+        const roiY = Math.floor(canvas.height * 0.21);
+        const roiW = Math.floor(canvas.width * 0.24);
+        const roiH = Math.floor(canvas.height * 0.09);
 
         const imageData = ctx.getImageData(
           roiX,
