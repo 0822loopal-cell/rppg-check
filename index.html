@@ -91,8 +91,14 @@ video {
   font-weight: bold;
 }
 
+#countdown {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 10px;
+}
+
 #rgbBox,
-#graphBox {
+.graphBox {
   display: none;
   max-width: 420px;
   margin: 16px auto;
@@ -108,15 +114,9 @@ video {
   line-height: 1.7;
 }
 
-#countdown {
-  font-size: 32px;
-  font-weight: bold;
-  margin: 10px;
-}
-
-#graph {
+.graph {
   width: 100%;
-  height: 180px;
+  height: 170px;
   border-radius: 10px;
   background: #fafafa;
 }
@@ -136,11 +136,11 @@ video {
 
 <h1>rPPG CHECK</h1>
 
-<p>簡易コンディション測定 Ver.4</p>
+<p>簡易コンディション測定 Ver.4.1</p>
 
 <p>
 白い枠を額中央の皮膚に合わせ、<br>
-できるだけ動かずに測定します。
+できるだけ動かずに20秒間測定します。
 </p>
 
 <button id="cameraButton">カメラを起動</button>
@@ -162,12 +162,19 @@ video {
   </div>
 </div>
 
-<div id="graphBox">
-  <strong>額ROI：G信号の時間変化</strong>
-  <canvas id="graph"></canvas>
+<div id="rawBox" class="graphBox">
+  <strong>① 元のG信号</strong>
+  <canvas id="rawGraph" class="graph"></canvas>
   <p class="small">
-    現段階では心拍数ではありません。<br>
-    額の緑色成分の時間変化を表示しています。
+    額ROIから取得した緑色成分の元データです。
+  </p>
+</div>
+
+<div id="filteredBox" class="graphBox">
+  <strong>② 基線除去後のG信号</strong>
+  <canvas id="filteredGraph" class="graph"></canvas>
+  <p class="small">
+    ゆっくりした変化を差し引き、細かな変動を拡大表示しています。
   </p>
 </div>
 
@@ -185,21 +192,21 @@ const statusText = document.getElementById("status");
 const countdown = document.getElementById("countdown");
 
 const rgbBox = document.getElementById("rgbBox");
-const graphBox = document.getElementById("graphBox");
+const rawBox = document.getElementById("rawBox");
+const filteredBox = document.getElementById("filteredBox");
 
 const rValue = document.getElementById("rValue");
 const gValue = document.getElementById("gValue");
 const bValue = document.getElementById("bValue");
 
 const sourceCanvas = document.getElementById("sourceCanvas");
-
 const sourceCtx = sourceCanvas.getContext(
   "2d",
   { willReadFrequently: true }
 );
 
-const graph = document.getElementById("graph");
-const graphCtx = graph.getContext("2d");
+const rawGraph = document.getElementById("rawGraph");
+const filteredGraph = document.getElementById("filteredGraph");
 
 let dragging = false;
 let offsetX = 0;
@@ -215,8 +222,7 @@ let measuring = false;
 cameraButton.addEventListener("click", async () => {
   try {
 
-    statusText.textContent =
-      "カメラを起動しています…";
+    statusText.textContent = "カメラを起動しています…";
 
     const stream =
       await navigator.mediaDevices.getUserMedia({
@@ -239,11 +245,8 @@ cameraButton.addEventListener("click", async () => {
       "loadedmetadata",
       () => {
 
-        sourceCanvas.width =
-          video.videoWidth;
-
-        sourceCanvas.height =
-          video.videoHeight;
+        sourceCanvas.width = video.videoWidth;
+        sourceCanvas.height = video.videoHeight;
 
         statusText.textContent =
           "白い枠を額中央へ合わせてください。";
@@ -269,26 +272,19 @@ roi.addEventListener("pointerdown", event => {
 
   dragging = true;
 
-  const rect =
-    roi.getBoundingClientRect();
+  const rect = roi.getBoundingClientRect();
 
-  offsetX =
-    event.clientX - rect.left;
+  offsetX = event.clientX - rect.left;
+  offsetY = event.clientY - rect.top;
 
-  offsetY =
-    event.clientY - rect.top;
-
-  roi.setPointerCapture(
-    event.pointerId
-  );
+  roi.setPointerCapture(event.pointerId);
 });
 
 roi.addEventListener("pointermove", event => {
 
   if (!dragging || measuring) return;
 
-  const wrapRect =
-    videoWrap.getBoundingClientRect();
+  const wrapRect = videoWrap.getBoundingClientRect();
 
   let x =
     event.clientX -
@@ -308,42 +304,23 @@ roi.addEventListener("pointermove", event => {
     videoWrap.clientHeight -
     roi.offsetHeight;
 
-  x =
-    Math.max(
-      0,
-      Math.min(x, maxX)
-    );
-
-  y =
-    Math.max(
-      0,
-      Math.min(y, maxY)
-    );
+  x = Math.max(0, Math.min(x, maxX));
+  y = Math.max(0, Math.min(y, maxY));
 
   roi.style.left =
-    (x /
-    videoWrap.clientWidth *
-    100) + "%";
+    (x / videoWrap.clientWidth * 100) + "%";
 
   roi.style.top =
-    (y /
-    videoWrap.clientHeight *
-    100) + "%";
+    (y / videoWrap.clientHeight * 100) + "%";
 });
 
-roi.addEventListener(
-  "pointerup",
-  () => {
-    dragging = false;
-  }
-);
+roi.addEventListener("pointerup", () => {
+  dragging = false;
+});
 
-roi.addEventListener(
-  "pointercancel",
-  () => {
-    dragging = false;
-  }
-);
+roi.addEventListener("pointercancel", () => {
+  dragging = false;
+});
 
 function getRGB() {
 
@@ -362,20 +339,15 @@ function getRGB() {
     sourceCanvas.height
   );
 
-  const videoRect =
-    video.getBoundingClientRect();
-
-  const roiRect =
-    roi.getBoundingClientRect();
+  const videoRect = video.getBoundingClientRect();
+  const roiRect = roi.getBoundingClientRect();
 
   const displayX =
-    (roiRect.left -
-    videoRect.left) /
+    (roiRect.left - videoRect.left) /
     videoRect.width;
 
   const displayY =
-    (roiRect.top -
-    videoRect.top) /
+    (roiRect.top - videoRect.top) /
     videoRect.height;
 
   const displayW =
@@ -387,52 +359,34 @@ function getRGB() {
     videoRect.height;
 
   const sourceX =
-    1 -
-    displayX -
-    displayW;
+    1 - displayX - displayW;
 
   let x =
-    Math.floor(
-      sourceX *
-      sourceCanvas.width
-    );
+    Math.floor(sourceX * sourceCanvas.width);
 
   let y =
-    Math.floor(
-      displayY *
-      sourceCanvas.height
-    );
+    Math.floor(displayY * sourceCanvas.height);
 
   let w =
-    Math.floor(
-      displayW *
-      sourceCanvas.width
-    );
+    Math.floor(displayW * sourceCanvas.width);
 
   let h =
-    Math.floor(
-      displayH *
-      sourceCanvas.height
-    );
+    Math.floor(displayH * sourceCanvas.height);
 
   x = Math.max(0, x);
   y = Math.max(0, y);
 
-  w =
-    Math.min(
-      w,
-      sourceCanvas.width - x
-    );
+  w = Math.min(
+    w,
+    sourceCanvas.width - x
+  );
 
-  h =
-    Math.min(
-      h,
-      sourceCanvas.height - y
-    );
+  h = Math.min(
+    h,
+    sourceCanvas.height - y
+  );
 
-  if (w <= 0 || h <= 0) {
-    return null;
-  }
+  if (w <= 0 || h <= 0) return null;
 
   const image =
     sourceCtx.getImageData(
@@ -459,9 +413,7 @@ function getRGB() {
     count++;
   }
 
-  if (count === 0) {
-    return null;
-  }
+  if (count === 0) return null;
 
   return {
     r: r / count,
@@ -483,123 +435,167 @@ function startPreview() {
 
       if (!rgb) return;
 
-      rValue.textContent =
-        rgb.r.toFixed(1);
-
-      gValue.textContent =
-        rgb.g.toFixed(1);
-
-      bValue.textContent =
-        rgb.b.toFixed(1);
+      rValue.textContent = rgb.r.toFixed(1);
+      gValue.textContent = rgb.g.toFixed(1);
+      bValue.textContent = rgb.b.toFixed(1);
 
     }, 100);
 }
 
-measureButton.addEventListener(
-  "click",
-  () => {
+measureButton.addEventListener("click", () => {
 
-    if (measuring) return;
+  if (measuring) return;
 
-    measuring = true;
+  measuring = true;
+  measureButton.disabled = true;
 
-    measureButton.disabled = true;
+  gSamples = [];
 
-    gSamples = [];
+  rawBox.style.display = "block";
+  filteredBox.style.display = "block";
 
-    graphBox.style.display =
-      "block";
+  clearCanvas(rawGraph);
+  clearCanvas(filteredGraph);
 
-    clearGraph();
+  statusText.textContent =
+    "測定中です。できるだけ動かないでください。";
 
-    statusText.textContent =
-      "測定中です。できるだけ動かないでください。";
+  let seconds = 20;
 
-    let seconds = 20;
+  countdown.textContent = seconds + " 秒";
 
-    countdown.textContent =
-      seconds + " 秒";
+  countdownTimer =
+    setInterval(() => {
 
-    countdownTimer =
-      setInterval(() => {
+      seconds--;
 
-        seconds--;
+      if (seconds > 0) {
+        countdown.textContent = seconds + " 秒";
+      } else {
+        countdown.textContent = "測定完了";
+        clearInterval(countdownTimer);
+      }
 
-        countdown.textContent =
-          seconds + " 秒";
+    }, 1000);
 
-        if (seconds <= 0) {
+  measurementTimer =
+    setInterval(() => {
 
-          clearInterval(
-            countdownTimer
-          );
+      const rgb = getRGB();
 
-          countdown.textContent =
-            "測定完了";
+      if (!rgb) return;
 
-        }
+      gSamples.push(rgb.g);
 
-      }, 1000);
+    }, 33);
 
-    measurementTimer =
-      setInterval(() => {
-
-        const rgb = getRGB();
-
-        if (!rgb) return;
-
-        gSamples.push(rgb.g);
-
-      }, 33);
-
-    setTimeout(
-      finishMeasurement,
-      20000
-    );
-  }
-);
+  setTimeout(
+    finishMeasurement,
+    20000
+  );
+});
 
 function finishMeasurement() {
 
-  clearInterval(
-    measurementTimer
-  );
+  clearInterval(measurementTimer);
+  clearInterval(countdownTimer);
 
   measuring = false;
-
   measureButton.disabled = false;
+
+  countdown.textContent = "測定完了";
 
   statusText.textContent =
     "測定が完了しました。";
 
-  drawGraph(gSamples);
+  const filtered =
+    removeBaseline(gSamples, 31);
+
+  drawGraph(rawGraph, gSamples);
+  drawGraph(filteredGraph, filtered);
 }
 
-function clearGraph() {
+/*
+ 約1秒分の移動平均を基線として、
+ 元信号から差し引きます。
 
-  graph.width =
-    graph.clientWidth *
-    window.devicePixelRatio;
+ 30fps前後を想定して31サンプル。
+*/
+function removeBaseline(samples, windowSize) {
 
-  graph.height =
-    graph.clientHeight *
-    window.devicePixelRatio;
+  const result = [];
 
-  graphCtx.clearRect(
+  const half =
+    Math.floor(windowSize / 2);
+
+  for (
+    let i = 0;
+    i < samples.length;
+    i++
+  ) {
+
+    let sum = 0;
+    let count = 0;
+
+    const start =
+      Math.max(0, i - half);
+
+    const end =
+      Math.min(
+        samples.length - 1,
+        i + half
+      );
+
+    for (
+      let j = start;
+      j <= end;
+      j++
+    ) {
+      sum += samples[j];
+      count++;
+    }
+
+    const baseline =
+      sum / count;
+
+    result.push(
+      samples[i] - baseline
+    );
+  }
+
+  return result;
+}
+
+function clearCanvas(canvas) {
+
+  const ratio =
+    window.devicePixelRatio || 1;
+
+  canvas.width =
+    canvas.clientWidth * ratio;
+
+  canvas.height =
+    canvas.clientHeight * ratio;
+
+  const ctx =
+    canvas.getContext("2d");
+
+  ctx.clearRect(
     0,
     0,
-    graph.width,
-    graph.height
+    canvas.width,
+    canvas.height
   );
 }
 
-function drawGraph(samples) {
+function drawGraph(canvas, samples) {
 
-  clearGraph();
+  clearCanvas(canvas);
 
-  if (samples.length < 2) {
-    return;
-  }
+  if (samples.length < 2) return;
+
+  const ctx =
+    canvas.getContext("2d");
 
   const min =
     Math.min(...samples);
@@ -610,13 +606,13 @@ function drawGraph(samples) {
   const range =
     max - min || 1;
 
-  const width =
-    graph.width;
+  const width = canvas.width;
+  const height = canvas.height;
 
-  const height =
-    graph.height;
+  const padding =
+    height * 0.08;
 
-  graphCtx.beginPath();
+  ctx.beginPath();
 
   samples.forEach(
     (value, index) => {
@@ -626,32 +622,28 @@ function drawGraph(samples) {
         (samples.length - 1) *
         width;
 
+      const normalized =
+        (value - min) / range;
+
       const y =
         height -
-        ((value - min) /
-        range *
-        height);
+        padding -
+        normalized *
+        (height - padding * 2);
 
       if (index === 0) {
-
-        graphCtx.moveTo(
-          x, y
-        );
-
+        ctx.moveTo(x, y);
       } else {
-
-        graphCtx.lineTo(
-          x, y
-        );
+        ctx.lineTo(x, y);
       }
     }
   );
 
-  graphCtx.lineWidth =
+  ctx.lineWidth =
     2 *
-    window.devicePixelRatio;
+    (window.devicePixelRatio || 1);
 
-  graphCtx.stroke();
+  ctx.stroke();
 }
 </script>
 
