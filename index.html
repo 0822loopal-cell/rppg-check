@@ -310,6 +310,8 @@ video {
   <p id="frameInfo" class="small"></p>
   <p id="signalInfo" class="small"></p>
 
+<p id="historyInfo" class="small"></p>
+
   <div class="warning">
     RMSSD・SDNNはHRV検証のための試験値です。<br>
     現段階では健康状態・自律神経・ストレス等の
@@ -357,6 +359,7 @@ const countdown = document.getElementById("countdown");
 const rgbBox = document.getElementById("rgbBox");
 const resultBox = document.getElementById("resultBox");
 const signalBox = document.getElementById("signalBox");
+const historyInfo = document.getElementById("historyInfo");
 const intervalBox = document.getElementById("intervalBox");
 const spectrumBox = document.getElementById("spectrumBox");
 
@@ -984,6 +987,44 @@ function finishMeasurement() {
     meanPPI !== null
       ? Math.round(meanPPI)
       : "---";
+
+const historyItem = {
+  datetime: new Date().toISOString(),
+  time: selectedTime,
+  feeling: selectedFeeling,
+  bpm: Math.round(frequencyBPM),
+  rmssd: rmssd !== null ? Number(rmssd.toFixed(1)) : null,
+  sdnn: sdnn !== null ? Number(sdnn.toFixed(1)) : null,
+  quality: qualityText
+};
+
+let history = [];
+
+try {
+  history = JSON.parse(
+    localStorage.getItem("rppgCheckHistoryV1") || "[]"
+  );
+
+  if (!Array.isArray(history)) {
+    history = [];
+  }
+} catch (e) {
+  history = [];
+}
+
+history.push(historyItem);
+
+// 初期版では直近90回分を保存
+if (history.length > 90) {
+  history = history.slice(-90);
+}
+
+localStorage.setItem(
+  "rppgCheckHistoryV1",
+  JSON.stringify(history)
+);
+
+historyInfo.textContent = `測定履歴：${history.length}回保存されています`;
 
   rmssdValue.textContent =
     rmssd !== null
