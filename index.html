@@ -207,7 +207,7 @@ video {
 
 <h1>rPPG CHECK</h1>
 
-<p>HRV検証版 Ver.6.5</p>
+<p>HRV検証版 Ver.6.6</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>今日のチェック</h2>
@@ -311,6 +311,7 @@ video {
   <p id="signalInfo" class="small"></p>
 
 <p id="historyInfo" class="small"></p>
+<div id="personalCompareBox" class="card" style="display:none;"></div>
 
   <div class="warning">
     RMSSD・SDNNはHRV検証のための試験値です。<br>
@@ -360,6 +361,7 @@ const rgbBox = document.getElementById("rgbBox");
 const resultBox = document.getElementById("resultBox");
 const signalBox = document.getElementById("signalBox");
 const historyInfo = document.getElementById("historyInfo");
+const personalCompareBox = document.getElementById("personalCompareBox");
 const intervalBox = document.getElementById("intervalBox");
 const spectrumBox = document.getElementById("spectrumBox");
 
@@ -1012,6 +1014,10 @@ try {
   history = [];
 }
 
+const sameTimeHistory = history
+  .filter((item) => item.time === selectedTime)
+  .slice(-7);
+
 history.push(historyItem);
 
 // 初期版では直近90回分を保存
@@ -1024,7 +1030,31 @@ localStorage.setItem(
   JSON.stringify(history)
 );
 
-historyInfo.textContent = `測定履歴：${history.length}回保存されています`;
+if (sameTimeHistory.length < 7) {
+  const remaining = 7 - sameTimeHistory.length;
+historyAdvice.textContent =
+  `あなた比の準備中です。同じ「${selectedTime}」で、あと${remaining}回測定すると比較を開始します。`;
+  historyInfo.textContent =
+    `測定履歴：${history.length}回保存 ／ あなた比を準備中：同じ時間帯であと${remaining}回`;
+} else {
+  const avgBpm =
+  sameTimeHistory.reduce((sum, item) => sum + item.bpm, 0) /
+  sameTimeHistory.length;
+
+const bpmDiff = Math.round(frequencyBPM - avgBpm);
+if (bpmDiff >= 8) {
+  historyAdvice.textContent =
+    `あなたの同じ時間帯の平均と比べて、今回は心拍数がやや高めです。少し落ち着いてから、もう一度測って変化を見てみましょう。`;
+} else if (bpmDiff <= -8) {
+  historyAdvice.textContent =
+    `あなたの同じ時間帯の平均と比べて、今回は心拍数がやや低めです。今の感覚とあわせて、いつもとの違いを確認してみましょう。`;
+} else {
+  historyAdvice.textContent =
+    `あなたの同じ時間帯の平均と比べて、今回は大きな変化はありません。今の感覚とあわせて、この状態をあなた自身の目安にしていきましょう。`;
+}
+historyInfo.textContent =
+    `測定履歴：${history.length}回保存 ／ あなた比の比較が可能です`;
+}
 
   rmssdValue.textContent =
     rmssd !== null
