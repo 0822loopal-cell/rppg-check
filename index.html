@@ -54,10 +54,10 @@
 
     #roi {
       position: absolute;
-      left: 35%;
-      top: 18%;
-      width: 30%;
-      height: 16%;
+      left: 37%;
+      top: 30%;
+      width: 26%;
+      height: 10%;
       border: 3px solid white;
       border-radius: 10px;
       box-sizing: border-box;
@@ -99,11 +99,11 @@
 
   <h1>rPPG CHECK</h1>
 
-  <p>簡易コンディション測定 Ver.2</p>
+  <p>簡易コンディション測定 Ver.3</p>
 
   <p>
-    フロントカメラ映像から<br>
-    顔の色データを取得します。
+    白い枠を額に合わせてください。<br>
+    枠内の色データを取得します。
   </p>
 
   <button id="startButton">カメラを起動</button>
@@ -171,7 +171,7 @@
           canvas.height = video.videoHeight;
 
           status.textContent =
-            "カメラ映像から色データを取得しています。";
+            "額の色データを取得しています。";
 
           startRGBReading();
         }, { once: true });
@@ -206,10 +206,10 @@
           canvas.height
         );
 
-        const roiX = Math.floor(canvas.width * 0.35);
-        const roiY = Math.floor(canvas.height * 0.18);
-        const roiW = Math.floor(canvas.width * 0.30);
-        const roiH = Math.floor(canvas.height * 0.16);
+        const roiX = Math.floor(canvas.width * 0.37);
+        const roiY = Math.floor(canvas.height * 0.30);
+        const roiW = Math.floor(canvas.width * 0.26);
+        const roiH = Math.floor(canvas.height * 0.10);
 
         const imageData = ctx.getImageData(
           roiX,
