@@ -1032,24 +1032,27 @@ localStorage.setItem(
 
 if (sameTimeHistory.length < 7) {
   const remaining = 7 - sameTimeHistory.length;
-historyAdvice.textContent =
+personalCompareBox.style.display = "block";
+personalCompareBox.textContent =
   `あなた比の準備中です。同じ「${selectedTime}」で、あと${remaining}回測定すると比較を開始します。`;
   historyInfo.textContent =
     `測定履歴：${history.length}回保存 ／ あなた比を準備中：同じ時間帯であと${remaining}回`;
 } else {
+  personalCompareBox.style.display = "block";
+  
   const avgBpm =
   sameTimeHistory.reduce((sum, item) => sum + item.bpm, 0) /
   sameTimeHistory.length;
 
 const bpmDiff = Math.round(frequencyBPM - avgBpm);
 if (bpmDiff >= 8) {
-  historyAdvice.textContent =
+  personalCompareBox.textContent =
     `あなたの同じ時間帯の平均と比べて、今回は心拍数がやや高めです。少し落ち着いてから、もう一度測って変化を見てみましょう。`;
 } else if (bpmDiff <= -8) {
-  historyAdvice.textContent =
+  personalCompareBox.textContent =
     `あなたの同じ時間帯の平均と比べて、今回は心拍数がやや低めです。今の感覚とあわせて、いつもとの違いを確認してみましょう。`;
 } else {
-  historyAdvice.textContent =
+  personalCompareBox.textContent =
     `あなたの同じ時間帯の平均と比べて、今回は大きな変化はありません。今の感覚とあわせて、この状態をあなた自身の目安にしていきましょう。`;
 }
 historyInfo.textContent =
