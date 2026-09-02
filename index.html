@@ -4,10 +4,103 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>rPPG CHECK</title>
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #f5f7fa;
+      color: #222;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 20px;
+      font-size: 32px;
+    }
+
+    p {
+      font-size: 17px;
+      line-height: 1.6;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 16px 28px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      background: #111;
+      color: white;
+    }
+
+    video {
+      display: none;
+      width: 100%;
+      max-width: 420px;
+      margin: 24px auto 0;
+      border-radius: 16px;
+      background: #000;
+      transform: scaleX(-1);
+    }
+
+    #status {
+      margin-top: 18px;
+      font-size: 16px;
+    }
+  </style>
 </head>
+
 <body>
+
   <h1>rPPG CHECK</h1>
+
   <p>簡易コンディション測定 Ver.1</p>
-  <p>準備完了です。</p>
+
+  <p>
+    まずはスマートフォンの<br>
+    フロントカメラが正常に使えるか確認します。
+  </p>
+
+  <button id="startButton">カメラを起動</button>
+
+  <p id="status">カメラはまだ起動していません。</p>
+
+  <video id="video" autoplay playsinline muted></video>
+
+  <script>
+    const startButton = document.getElementById("startButton");
+    const video = document.getElementById("video");
+    const status = document.getElementById("status");
+
+    startButton.addEventListener("click", async () => {
+      try {
+        status.textContent = "カメラを起動しています…";
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user"
+          },
+          audio: false
+        });
+
+        video.srcObject = stream;
+        video.style.display = "block";
+
+        status.textContent = "カメラが正常に起動しました。";
+        startButton.textContent = "カメラ起動済み";
+        startButton.disabled = true;
+
+      } catch (error) {
+        console.error(error);
+
+        status.textContent =
+          "カメラを起動できませんでした。カメラの使用を許可してください。";
+      }
+    });
+  </script>
+
 </body>
 </html>
