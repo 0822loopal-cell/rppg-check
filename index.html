@@ -190,6 +190,14 @@ video {
 #sourceCanvas {
   display: none;
 }
+
+/* Ver.6.4 選択ボタン */
+#checkinBox button.selected {
+  background: #222;
+  color: #fff;
+  border-color: #222;
+}
+
 </style>
 </head>
 
@@ -198,7 +206,28 @@ video {
 <h1>rPPG CHECK</h1>
 
 <p>HRV検証版 Ver.6.3</p>
+<div class="card" id="checkinBox" style="display:block;">
 
+  <h2>今日のチェック</h2>
+
+  <p><strong>今はいつですか？</strong></p>
+
+  <div>
+    <button type="button">朝</button>
+    <button type="button">日中</button>
+    <button type="button">夜</button>
+  </div>
+
+  <p><strong>今の感覚は？</strong></p>
+
+  <div>
+    <button type="button">いつも通り</button>
+    <button type="button">少し疲れている</button>
+    <button type="button">かなり疲れている</button>
+    <button type="button">活動・運動の直後</button>
+  </div>
+
+</div>
 <p>
 白い枠を額中央の皮膚に合わせ、<br>
 できるだけ動かずに20秒間測定します。
@@ -328,6 +357,9 @@ const resultBox = document.getElementById("resultBox");
 const signalBox = document.getElementById("signalBox");
 const intervalBox = document.getElementById("intervalBox");
 const spectrumBox = document.getElementById("spectrumBox");
+
+let selectedTime = "";
+let selectedFeeling = "";
 
 const rValue = document.getElementById("rValue");
 const gValue = document.getElementById("gValue");
@@ -586,6 +618,12 @@ measureButton.addEventListener("click", () => {
 
   if (measuring) return;
 
+  if (!selectedTime || !selectedFeeling) {
+    statusText.textContent =
+      "「今はいつですか？」と「今の感覚は？」を選んでください。";
+    return;
+  }
+  
   measuring = true;
   measureButton.disabled = true;
 
@@ -2237,6 +2275,53 @@ function drawSpectrumGraph(
   ctx.stroke();
 
 }
+
+// ===== Ver.6.4 測定前チェック =====
+
+const checkinBox = document.getElementById("checkinBox");
+const checkinButtons = checkinBox.querySelectorAll("button");
+
+checkinButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+
+    const value = button.textContent.trim();
+
+    if (["朝", "日中", "夜"].includes(value)) {
+  selectedTime = value;
+
+  checkinButtons.forEach((btn) => {
+    if (["朝", "日中", "夜"].includes(btn.textContent.trim())) {
+      btn.classList.remove("selected");
+    }
+  });
+
+  button.classList.add("selected");
+}
+
+    if ([
+  "いつも通り",
+  "少し疲れている",
+  "かなり疲れている",
+  "活動・運動の直後"
+].includes(value)) {
+  selectedFeeling = value;
+
+  checkinButtons.forEach((btn) => {
+    if ([
+      "いつも通り",
+      "少し疲れている",
+      "かなり疲れている",
+      "活動・運動の直後"
+    ].includes(btn.textContent.trim())) {
+      btn.classList.remove("selected");
+    }
+  });
+
+  button.classList.add("selected");
+}
+
+  });
+});
 
 </script>
 
