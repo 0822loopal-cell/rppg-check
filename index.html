@@ -207,7 +207,7 @@ video {
 
 <h1>rPPG CHECK</h1>
 
-<p>HRV検証版 Ver.7.2</p>
+<p>HRV検証版 Ver.7.3</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>今日のチェック</h2>
@@ -1046,10 +1046,37 @@ personalCompareBox.textContent =
   historyInfo.textContent =
     `測定履歴：${history.length}回保存 ／ あなた比を準備中：同じ時間帯であと${remaining}回`;
 todayAdviceBox.style.display = "block";
-
-if (selectedFeeling === "少し疲れている" && selectedTime === "朝") {
+if (selectedFeeling === "少し疲れている") {
+  if (selectedTime === "朝") {
+    todayAdviceText.textContent =
+      "少し疲れていると感じている今は、無理にペースを上げず、まずはゆっくり身体を動かし始めてみましょう。";
+  } else if (selectedTime === "夜") {
+    todayAdviceText.textContent =
+      "少し疲れていると感じている今は、そろそろ活動量を落として、休息へ切り替える時間をつくってみましょう。";
+  } else {
+    todayAdviceText.textContent =
+      "少し疲れていると感じている今は、1〜2分だけ身体を休めて、いったん切り替える時間をつくってみましょう。";
+  }
+}
+if (selectedFeeling === "かなり疲れている") {
+  if (selectedTime === "朝") {
+    todayAdviceText.textContent =
+      "かなり疲れていると感じている今は、朝から無理にペースを上げず、まずは身体を休めながらゆっくり始めてみましょう。";
+  } else if (selectedTime === "夜") {
+    todayAdviceText.textContent =
+      "かなり疲れていると感じている今は、無理に頑張らず、活動を切り上げて休息を優先してみましょう。";
+  } else {
+    todayAdviceText.textContent =
+      "かなり疲れていると感じている今は、無理に頑張らず、まずはひと休みを優先してみましょう。";
+  }
+}
+if (selectedFeeling === "活動・運動の直後") {
   todayAdviceText.textContent =
-    "少し疲れていると感じている今は、無理にペースを上げず、まずはゆっくり身体を動かし始めてみましょう。";
+    "活動・運動の直後ですね。まずは少し身体を休めて、落ち着いてからもう一度測ってみましょう。";
+}
+if (selectedFeeling === "いつも通り") {
+  todayAdviceText.textContent =
+    "今の感覚はいつも通り。今回の結果を、今日のあなた自身の状態を確認する目安にしてみましょう。";
 }
 } else {
   personalCompareBox.style.display = "block";
