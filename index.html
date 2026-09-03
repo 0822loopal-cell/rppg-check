@@ -312,6 +312,12 @@ video {
 
 <p id="historyInfo" class="small"></p>
 <div id="personalCompareBox" class="card" style="display:none;"></div>
+<div id="todayAdviceBox" class="history-advice" style="display:none;">
+  <div style="font-size:18px; font-weight:700; margin-bottom:8px;">
+    今日のひとこと
+  </div>
+  <div id="todayAdviceText"></div>
+</div>
 
   <div class="warning">
     RMSSD・SDNNはHRV検証のための試験値です。<br>
@@ -362,6 +368,8 @@ const resultBox = document.getElementById("resultBox");
 const signalBox = document.getElementById("signalBox");
 const historyInfo = document.getElementById("historyInfo");
 const personalCompareBox = document.getElementById("personalCompareBox");
+const todayAdviceBox = document.getElementById("todayAdviceBox");
+const todayAdviceText = document.getElementById("todayAdviceText");
 const intervalBox = document.getElementById("intervalBox");
 const spectrumBox = document.getElementById("spectrumBox");
 
@@ -1055,6 +1063,48 @@ if (bpmDiff >= 8) {
   personalCompareBox.textContent =
     `あなたの同じ時間帯の平均と比べて、今回は大きな変化はありません。今の感覚とあわせて、この状態をあなた自身の目安にしていきましょう。`;
 }
+todayAdviceBox.style.display = "block";
+
+if (selectedFeeling === "活動・運動の直後") {
+  if (bpmDiff >= 8) {
+    todayAdviceText.textContent =
+      "活動・運動の直後で、いつもの同じ時間帯より心拍数も高めです。まずは身体を休めて、落ち着いてからもう一度測ってみましょう。";
+  } else {
+    todayAdviceText.textContent =
+      "活動・運動の直後ですね。まずは少し身体を休めて、落ち着いてからもう一度測ってみましょう。";
+  }
+}
+if (selectedFeeling === "かなり疲れている") {
+  if (bpmDiff >= 8) {
+    todayAdviceText.textContent =
+      "かなり疲れていると感じていて、いつもの同じ時間帯より心拍数も高めです。今日は無理に頑張らず、まずはひと休みを優先してみましょう。";
+  } else {
+    todayAdviceText.textContent =
+      "かなり疲れていると感じているようです。今日は無理に頑張らず、まずはひと休みを優先してみましょう。";
+  }
+}
+if (selectedFeeling === "少し疲れている") {
+  if (bpmDiff >= 8) {
+    todayAdviceText.textContent =
+      "少し疲れていると感じていて、いつもの同じ時間帯より心拍数も高めです。1〜2分だけ身体を休めて、落ち着いてからもう一度測って変化を見てみましょう。";
+  } else {
+    todayAdviceText.textContent =
+      "少し疲れていると感じているようです。1〜2分だけ身体を休めて、今の状態を整える時間をつくってみましょう。";
+  }
+}
+if (selectedFeeling === "いつも通り") {
+  if (bpmDiff >= 8) {
+    todayAdviceText.textContent =
+      "今の感覚はいつも通りですが、いつもの同じ時間帯より心拍数は高めです。少し落ち着いてから、もう一度測って変化を見てみましょう。";
+  } else if (bpmDiff <= -8) {
+    todayAdviceText.textContent =
+      "今の感覚はいつも通りですが、いつもの同じ時間帯より心拍数は低めです。今の感覚とあわせて、いつもとの違いを確認する目安にしてみましょう。";
+  } else {
+    todayAdviceText.textContent =
+      "今の感覚はいつも通りですね。心拍数もいつもの同じ時間帯と大きな変化はありません。今日のあなた自身の状態を確認する目安にしていきましょう。";
+  }
+}
+
 historyInfo.textContent =
     `測定履歴：${history.length}回保存 ／ あなた比の比較が可能です`;
 }
