@@ -207,7 +207,7 @@ video {
 
 <h1>rPPG CHECK</h1>
 
-<p>HRV検証版 Ver.7.1</p>
+<p>HRV検証版 Ver.7.2</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>今日のチェック</h2>
@@ -1045,6 +1045,12 @@ personalCompareBox.textContent =
   `あなた比の準備中です。同じ「${selectedTime}」で、あと${remaining}回測定すると比較を開始します。`;
   historyInfo.textContent =
     `測定履歴：${history.length}回保存 ／ あなた比を準備中：同じ時間帯であと${remaining}回`;
+todayAdviceBox.style.display = "block";
+
+if (selectedFeeling === "少し疲れている" && selectedTime === "朝") {
+  todayAdviceText.textContent =
+    "少し疲れていると感じている今は、無理にペースを上げず、まずはゆっくり身体を動かし始めてみましょう。";
+}
 } else {
   personalCompareBox.style.display = "block";
   
