@@ -208,7 +208,7 @@ video {
 <h1>今日のコンディションは？</h1>
 <p class="small">by LOOPAL</p>
 
-<p>Ver.1.7 直近3回履歴共有追加</p>
+<p>Ver.1.7 日本時間表示対応</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>測定前に教えてください</h2>
@@ -2765,10 +2765,25 @@ try {
 
 const recent3History = shareHistory.slice(-3);
 
+const formatDateTime = (isoString) => {
+  if (!isoString) return "記録なし";
+
+  const date = new Date(isoString);
+
+  return date.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+};
+
 const recent3Text = recent3History.map((item, index) => {
   return [
     `【履歴${index + 1}】`,
-    `日時：${item.datetime || "記録なし"}`,
+    `日時：${formatDateTime(item.datetime)}`,
     `時間帯：${item.time || "記録なし"}`,
     `本人感覚：${item.feeling || "記録なし"}`,
     `睡眠：${item.sleep || "記録なし"}`,
