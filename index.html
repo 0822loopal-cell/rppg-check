@@ -208,7 +208,7 @@ video {
 <h1>今日のコンディションは？</h1>
 <p class="small">by LOOPAL</p>
 
-<p>Ver.1.7 分析用テキスト共有2</p>
+<p>Ver.1.7 直近3回履歴共有追加</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>測定前に教えてください</h2>
@@ -2753,6 +2753,34 @@ if (
 // ===== Ver.1.7 共有テスト =====
 shareResultButton.addEventListener("click", async () => {
 
+let shareHistory = [];
+
+try {
+  shareHistory = JSON.parse(
+    localStorage.getItem("rppgCheckHistoryV1")
+  ) || [];
+} catch (e) {
+  shareHistory = [];
+}
+
+const recent3History = shareHistory.slice(-3);
+
+const recent3Text = recent3History.map((item, index) => {
+  return [
+    `【履歴${index + 1}】`,
+    `日時：${item.datetime || "記録なし"}`,
+    `時間帯：${item.time || "記録なし"}`,
+    `本人感覚：${item.feeling || "記録なし"}`,
+    `睡眠：${item.sleep || "記録なし"}`,
+    `活動・負担：${item.activity || "記録なし"}`,
+    `測定直前：${item.situation || "記録なし"}`,
+    `心拍数：${item.bpm ?? "記録なし"} bpm`,
+    `平均PPI：${item.meanPpi ?? "記録なし"} ms`,
+    `RMSSD：${item.rmssd ?? "記録なし"} ms`,
+    `SDNN：${item.sdnn ?? "記録なし"} ms`
+  ].join("\n");
+}).join("\n\n");
+
 const testText =
 `【今日のコンディションは？｜今回の測定結果】
 
@@ -2781,6 +2809,10 @@ ${todayGuideText.textContent || "記録なし"}
 
 【わたしの取扱説明書】
 ${personalPatternText.textContent || "記録なし"}
+
+■ 直近3回の測定履歴
+
+${recent3Text}
 
 ※RMSSD・SDNNはrPPGによる検証用の試験値です。
 健康状態・自律神経・ストレス等の単独評価には使用しません。`;
