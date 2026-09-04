@@ -208,7 +208,7 @@ video {
 <h1>今日のコンディションは？</h1>
 <p class="small">by LOOPAL</p>
 
-<p>Ver.1.2 今日の過ごし方ロジック追加</p>
+<p>Ver.1.2 今日の過ごし方 表示修正</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>測定前に教えてください</h2>
@@ -1135,6 +1135,7 @@ if (bpmDiff >= 8) {
     `あなたの同じ時間帯の平均と比べて、今回は大きな変化はありません。今の感覚とあわせて、この状態をあなた自身の目安にしていきましょう。`;
 }
 todayAdviceBox.style.display = "block";
+todayGuideBox.style.display = "block";
 
 if (selectedFeeling === "活動・運動の直後") {
   if (bpmDiff >= 8) {
