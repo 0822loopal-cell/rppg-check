@@ -208,7 +208,7 @@ video {
 <h1>今日のコンディションは？</h1>
 <p class="small">by LOOPAL</p>
 
-<p>Ver.1.3</p>
+<p>Ver.1.4 履歴保存項目を拡張</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>測定前に教えてください</h2>
@@ -1039,10 +1039,16 @@ const historyItem = {
   datetime: new Date().toISOString(),
   time: selectedTime,
   feeling: selectedFeeling,
+  sleep: selectedSleep,
+  activity: selectedActivity,
+  situation: selectedSituation,
   bpm: Math.round(frequencyBPM),
+  meanPpi: meanPPI !== null ? Math.round(meanPPI) : null,
   rmssd: rmssd !== null ? Number(rmssd.toFixed(1)) : null,
   sdnn: sdnn !== null ? Number(sdnn.toFixed(1)) : null,
-  quality: qualityText
+  quality: qualityText,
+  acceptedPpi: intervals.length,
+  rejectedPpi: rejectedCount
 };
 
 let history = [];
