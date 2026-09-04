@@ -208,7 +208,7 @@ video {
 <h1>今日のコンディションは？</h1>
 <p class="small">by LOOPAL</p>
 
-<p>Ver.1.2 睡眠選択処理追加</p>
+<p>Ver.1.2 測定状況の選択処理追加</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>測定前に教えてください</h2>
@@ -2503,23 +2503,18 @@ checkinButtons.forEach((button) => {
   button.classList.add("selected");
 }
 
-    if ([
-  "いつも通り",
-  "少し疲れている",
-  "かなり疲れている",
-  "活動・運動の直後"
-].includes(value)) {
+if (
+  button.closest("#feelingButtons") &&
+  [
+    "いつも通り",
+    "少し疲れている",
+    "かなり疲れている"
+  ].includes(value)
+) {
   selectedFeeling = value;
 
-  checkinButtons.forEach((btn) => {
-    if ([
-      "いつも通り",
-      "少し疲れている",
-      "かなり疲れている",
-      "活動・運動の直後"
-    ].includes(btn.textContent.trim())) {
-      btn.classList.remove("selected");
-    }
+  document.querySelectorAll("#feelingButtons button").forEach((btn) => {
+    btn.classList.remove("selected");
   });
 
   button.classList.add("selected");
@@ -2539,6 +2534,40 @@ if ([
   button.classList.add("selected");
 }
 
+if (
+  button.closest("#activityButtons") &&
+  [
+    "少ない",
+    "いつも通り",
+    "多い"
+  ].includes(value)
+) {
+  selectedActivity = value;
+
+  document.querySelectorAll("#activityButtons button").forEach((btn) => {
+    btn.classList.remove("selected");
+  });
+
+  button.classList.add("selected");
+}
+
+if (
+  button.closest("#situationButtons") &&
+  [
+    "安静時",
+    "仕事・家事の後",
+    "運動・活動の後",
+    "休息した後"
+  ].includes(value)
+) {
+  selectedSituation = value;
+
+  document.querySelectorAll("#situationButtons button").forEach((btn) => {
+    btn.classList.remove("selected");
+  });
+
+  button.classList.add("selected");
+}
   });
 });
 
