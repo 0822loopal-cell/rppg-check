@@ -344,6 +344,13 @@ video {
   <div id="todayAdviceText"></div>
 </div>
 
+<div id="todayGuideBox" class="history-advice" style="display:none;">
+  <div style="font-size:18px; font-weight:700;">
+    今日の過ごし方
+  </div>
+  <div id="todayGuideText"></div>
+</div>
+
   <div class="warning">
     RMSSD・SDNNはHRV検証のための試験値です。<br>
     現段階では健康状態・自律神経・ストレス等の
@@ -396,6 +403,8 @@ const historyInfo = document.getElementById("historyInfo");
 const personalCompareBox = document.getElementById("personalCompareBox");
 const todayAdviceBox = document.getElementById("todayAdviceBox");
 const todayAdviceText = document.getElementById("todayAdviceText");
+const todayGuideBox = document.getElementById("todayGuideBox");
+const todayGuideText = document.getElementById("todayGuideText");
 const intervalBox = document.getElementById("intervalBox");
 const spectrumBox = document.getElementById("spectrumBox");
 
@@ -1074,6 +1083,7 @@ personalCompareBox.textContent =
   historyInfo.textContent =
     `測定履歴：${history.length}回保存 ／ あなた比を準備中：同じ時間帯であと${remaining}回`;
 todayAdviceBox.style.display = "block";
+todayGuideBox.style.display = "block";
 if (selectedFeeling === "少し疲れている") {
   if (selectedTime === "朝") {
     todayAdviceText.textContent =
@@ -1178,6 +1188,29 @@ if (selectedFeeling === "いつも通り") {
     todayAdviceText.textContent =
       "今の感覚はいつも通り。心拍数も同じ時間帯のいつもの範囲と大きな変化はありません。今日のあなた自身の状態を確認する目安にしていきましょう。";
   }
+}
+
+if (
+  selectedFeeling === "かなり疲れている" ||
+  selectedSleep === "あまり眠れなかった"
+) {
+  todayGuideText.textContent =
+    "今日は無理に予定を詰め込まず、できることを少し絞って、休息の時間を意識して確保してみましょう。";
+} else if (selectedSituation === "運動・活動の後") {
+  todayGuideText.textContent =
+    "活動の直後です。まずは少し身体を休めてから、落ち着いたところでもう一度測ってみるのも良さそうです。";
+} else if (selectedActivity === "多い") {
+  todayGuideText.textContent =
+    "今日は活動・負担が多い日です。この後は短い休息を挟みながら、少しペースを落として過ごしてみましょう。";
+} else if (selectedFeeling === "少し疲れている") {
+  todayGuideText.textContent =
+    "少し疲れを感じているようです。1〜2分でもいったん身体を休めて、切り替える時間をつくってみましょう。";
+} else if (selectedSituation === "休息した後") {
+  todayGuideText.textContent =
+    "休息した後の状態です。今の感覚と今回の結果を、休む前との違いを見る目安にしてみましょう。";
+} else {
+  todayGuideText.textContent =
+    "今日は大きくペースを変えず、今の自分の感覚を確認しながら過ごしてみましょう。";
 }
 
 historyInfo.textContent =
