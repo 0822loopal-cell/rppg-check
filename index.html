@@ -208,7 +208,7 @@ video {
 <h1>今日のコンディションは？</h1>
 <p class="small">by LOOPAL</p>
 
-<p>Ver.1.6 構文エラー修正</p>
+<p>Ver.1.7 分析用テキスト共有追加</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>測定前に教えてください</h2>
@@ -358,6 +358,12 @@ video {
   <div id="personalPatternText"></div>
 </div>
 
+<div id="shareResultBox" style="display:none; margin-top:28px; margin-bottom:28px;">
+  <button id="shareResultButton" type="button">
+    施術院へ共有
+  </button>
+</div>
+
   <div class="warning">
     RMSSD・SDNNはHRV検証のための試験値です。<br>
     現段階では健康状態・自律神経・ストレス等の
@@ -414,6 +420,8 @@ const todayGuideBox = document.getElementById("todayGuideBox");
 const todayGuideText = document.getElementById("todayGuideText");
 const personalPatternBox = document.getElementById("personalPatternBox");
 const personalPatternText = document.getElementById("personalPatternText");
+const shareResultBox = document.getElementById("shareResultBox");
+const shareResultButton = document.getElementById("shareResultButton");
 const intervalBox = document.getElementById("intervalBox");
 const spectrumBox = document.getElementById("spectrumBox");
 
@@ -1079,6 +1087,8 @@ const sameTimeHistory = history
   .slice(-7);
 
 history.push(historyItem);
+
+shareResultBox.style.display = "block";
 
 // 初期版では直近90回分を保存
 if (history.length > 90) {
@@ -2738,6 +2748,102 @@ if (
   button.classList.add("selected");
 }
   });
+});
+
+});
+});
+
+// ===== Ver.1.7 分析用テキスト共有 =====
+
+shareResultButton.addEventListener("click", async () => {
+
+  // 保存済み履歴を取得
+  let shareHistory = [];
+
+  try {
+    shareHistory = JSON.parse(
+      localStorage.getItem("rppgCheckHistoryV1")
+    ) || [];
+  } catch (e) {
+    shareHistory = [];
+  }
+
+  // 今回を含む直近14回
+  const recentHistory = shareHistory.slice(-14);
+
+  const historyText = recentHistory.map((item, index) => {
+
+    return [
+      `【記録${index + 1}】`,
+      `日時：${item.datetime || "記録なし"}`,
+      `時間帯：${item.time || "記録なし"}`,
+      `本人感覚：${item.feeling || "記録なし"}`,
+      `睡眠：${item.sleep || "記録なし"}`,
+      `活動・負担：${item.activity || "記録なし"}`,
+      `測定直前：${item.situation || "記録なし"}`,
+      `心拍数：${item.bpm ?? "記録なし"} bpm`,
+      `平均PPI：${item.meanPpi ?? "記録なし"} ms`,
+      `RMSSD：${item.rmssd ?? "記録なし"} ms`,
+      `SDNN：${item.sdnn ?? "記録なし"} ms`,
+      `測定品質：${item.quality || "記録なし"}`,
+      `採用PPI：${item.acceptedPpi ?? "記録なし"}`,
+      `除外PPI：${item.rejectedPpi ?? "記録なし"}`
+    ].join("\n");
+
+  }).join("\n\n");
+
+  const shareText =
+`【今日のコンディションは？｜分析用データ】
+
+このデータは診断・治療効果判定を目的としたものではありません。
+本人感覚・生活背景・測定結果・過去からの変化を組み合わせ、
+経時的な傾向を確認するための参考情報です。
+
+■ 今回の表示内容
+
+【今日のひとこと】
+${todayAdviceText.textContent || "記録なし"}
+
+【今日の過ごし方】
+${todayGuideText.textContent || "記録なし"}
+
+【わたしの取扱説明書】
+${personalPatternText.textContent || "記録なし"}
+
+■ 直近の測定履歴
+
+${historyText}
+
+■ 測定データについて
+
+RMSSD・SDNNはrPPGによる検証用の試験値です。
+健康状態、自律神経、ストレス等の単独評価には使用しません。
+
+測定品質、本人感覚、生活背景、心拍数、平均PPI、
+RMSSD・SDNN、採用・除外PPI、および経時変化を
+組み合わせて確認してください。`;
+
+  // iPhone等：共有シート
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: "今日のコンディションは？｜分析用データ",
+        text: shareText
+      });
+      return;
+    } catch (e) {
+      if (e.name === "AbortError") return;
+    }
+  }
+
+  // 共有機能が使えない環境ではクリップボードへコピー
+  try {
+    await navigator.clipboard.writeText(shareText);
+    alert("分析用データをコピーしました。");
+  } catch (e) {
+    alert("共有できませんでした。");
+  }
+
 });
 
 </script>
