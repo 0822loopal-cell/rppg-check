@@ -208,7 +208,7 @@ video {
 <h1>今日のコンディションは？</h1>
 <p class="small">by LOOPAL</p>
 
-<p>Ver.1.2 感覚項目の整理</p>
+<p>Ver.1.2 測定前チェック変数追加</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>測定前に教えてください</h2>
@@ -401,7 +401,9 @@ const spectrumBox = document.getElementById("spectrumBox");
 
 let selectedTime = "";
 let selectedFeeling = "";
-
+let selectedSleep = "";
+let selectedActivity = "";
+let selectedSituation = "";
 const rValue = document.getElementById("rValue");
 const gValue = document.getElementById("gValue");
 const bValue = document.getElementById("bValue");
