@@ -208,7 +208,7 @@ video {
 <h1>今日のコンディションは？</h1>
 <p class="small">by LOOPAL</p>
 
-<p>Ver.1.7</p>
+<p>Ver.1.7 初回測定時の過ごし方表示修正</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>測定前に教えてください</h2>
@@ -1248,6 +1248,44 @@ if (selectedFeeling === "いつも通り") {
   todayAdviceText.textContent =
     "今の感覚はいつも通り。今回の結果を、今日のあなた自身の状態を確認する目安にしてみましょう。";
 }
+
+// あなた比準備中でも「今日の過ごし方」を表示
+if (selectedFeeling === "かなり疲れている") {
+  todayGuideText.textContent =
+    "かなり疲れを感じている今日は、予定を詰め込みすぎず、休息の時間を優先してみましょう。";
+
+} else if (
+  selectedSleep === "あまり眠れなかった" &&
+  selectedActivity === "多い"
+) {
+  todayGuideText.textContent =
+    "昨夜の睡眠が十分でなく、今日は活動・負担も多い日です。この後は少しペースを落として、休める時間をつくってみましょう。";
+
+} else if (selectedSituation === "運動・活動の後") {
+  todayGuideText.textContent =
+    "運動・活動の直後です。まず少し身体を休めて、落ち着いた状態との違いも見てみましょう。";
+
+} else if (selectedFeeling === "少し疲れている") {
+  todayGuideText.textContent =
+    "少し疲れを感じているようです。1〜2分でも身体を休めて、いったん切り替える時間をつくってみましょう。";
+
+} else if (selectedSleep === "あまり眠れなかった") {
+  todayGuideText.textContent =
+    "昨夜はあまり眠れなかったようです。今日は無理にペースを上げず、休める時間も意識してみましょう。";
+
+} else if (selectedActivity === "多い") {
+  todayGuideText.textContent =
+    "今日は活動・負担が多い日です。この後は短い休息を挟みながら過ごしてみましょう。";
+
+} else if (selectedSituation === "休息した後") {
+  todayGuideText.textContent =
+    "休息した後の状態です。休む前と比べて、今の感覚や今回の測定結果にどんな違いがあるか見てみましょう。";
+
+} else {
+  todayGuideText.textContent =
+    "今日は大きくペースを変えず、今の自分の感覚を確認しながら過ごしてみましょう。";
+}
+
 } else {
   personalCompareBox.style.display = "block";
   
