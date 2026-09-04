@@ -208,7 +208,7 @@ video {
 <h1>今日のコンディションは？</h1>
 <p class="small">by LOOPAL</p>
 
-<p>Ver.1.5 わたしの取扱説明書 基礎ロジック追加</p>
+<p>Ver.1.6 比較型の傾向判定追加</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>測定前に教えてください</h2>
@@ -1112,42 +1112,88 @@ if (patternHistory.length < 7) {
 
   const recentPatternHistory = patternHistory.slice(-14);
 
-  const tiredHistory = recentPatternHistory.filter(item =>
-    item.feeling === "少し疲れている" ||
-    item.feeling === "かなり疲れている"
-  );
+const poorSleepHistory = recentPatternHistory.filter(item =>
+  item.sleep === "あまり眠れなかった"
+);
 
-  const poorSleepCount = tiredHistory.filter(item =>
-    item.sleep === "あまり眠れなかった"
-  ).length;
+const otherSleepHistory = recentPatternHistory.filter(item =>
+  item.sleep === "よく眠れた" ||
+  item.sleep === "普通"
+);
 
-  const highActivityCount = tiredHistory.filter(item =>
-    item.activity === "多い"
-  ).length;
+const poorSleepTiredCount = poorSleepHistory.filter(item =>
+  item.feeling === "少し疲れている" ||
+  item.feeling === "かなり疲れている"
+).length;
 
-  personalPatternBox.style.display = "block";
+const otherSleepTiredCount = otherSleepHistory.filter(item =>
+  item.feeling === "少し疲れている" ||
+  item.feeling === "かなり疲れている"
+).length;
 
-  if (
-    tiredHistory.length >= 3 &&
-    poorSleepCount >= Math.ceil(tiredHistory.length / 2)
-  ) {
+const highActivityHistory = recentPatternHistory.filter(item =>
+  item.activity === "多い"
+);
 
-    personalPatternText.textContent =
-      "これまでの記録では、疲れを感じている時に「睡眠が十分でなかった」という回答が重なる傾向があります。睡眠と翌日の感覚の関係を、これからも確認していきましょう。";
+const otherActivityHistory = recentPatternHistory.filter(item =>
+  item.activity === "少ない" ||
+  item.activity === "いつも通り"
+);
 
-  } else if (
-    tiredHistory.length >= 3 &&
-    highActivityCount >= Math.ceil(tiredHistory.length / 2)
-  ) {
+const highActivityTiredCount = highActivityHistory.filter(item =>
+  item.feeling === "少し疲れている" ||
+  item.feeling === "かなり疲れている"
+).length;
 
-    personalPatternText.textContent =
-      "これまでの記録では、活動・負担が多い日に疲れを感じる回答が重なる傾向があります。活動量とその後の感覚の変化を、これからも確認していきましょう。";
+const otherActivityTiredCount = otherActivityHistory.filter(item =>
+  item.feeling === "少し疲れている" ||
+  item.feeling === "かなり疲れている"
+).length;
 
-  } else {
+const poorSleepTiredRate =
+  poorSleepHistory.length >= 2
+    ? poorSleepTiredCount / poorSleepHistory.length
+    : null;
 
-    personalPatternText.textContent =
-      "記録が少しずつ蓄積されています。今のところ、生活背景と感覚の間に一つの明確な傾向は見えていません。測定を続けながら、あなた自身の変化のパターンを確認していきましょう。";
-  }
+const otherSleepTiredRate =
+  otherSleepHistory.length >= 2
+    ? otherSleepTiredCount / otherSleepHistory.length
+    : null;
+
+const highActivityTiredRate =
+  highActivityHistory.length >= 2
+    ? highActivityTiredCount / highActivityHistory.length
+    : null;
+
+const otherActivityTiredRate =
+  otherActivityHistory.length >= 2
+    ? otherActivityTiredCount / otherActivityHistory.length
+    : null;
+
+personalPatternBox.style.display = "block";
+
+if (
+  poorSleepTiredRate !== null &&
+  otherSleepTiredRate !== null &&
+  poorSleepTiredRate - otherSleepTiredRate >= 0.25
+) {
+
+  personalPatternText.textContent =
+    "これまでの記録では、睡眠が十分でなかった日の方が、よく眠れた日や普通に眠れた日よりも、疲れを感じる回答が多くなっています。今後も睡眠と翌日の感覚の関係を見ていきましょう。";
+
+} else if (
+  highActivityTiredRate !== null &&
+  otherActivityTiredRate !== null &&
+  highActivityTiredRate - otherActivityTiredRate >= 0.25
+) {
+
+  personalPatternText.textContent =
+    "これまでの記録では、活動・負担が多い日の方が、少ない日やいつも通りの日よりも、疲れを感じる回答が多くなっています。今後も活動量とその後の感覚の関係を見ていきましょう。";
+
+} else {
+
+  personalPatternText.textContent =
+    "記録が少しずつ蓄積されています。今のところ、睡眠や活動・負担による明確な違いはまだ確認できていません。測定を続けながら、あなた自身の変化のパターンを見ていきましょう。";
 }
 
 if (sameTimeHistory.length < 7) {
