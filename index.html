@@ -208,7 +208,7 @@ video {
 <h1>今日のコンディションは？</h1>
 <p class="small">by LOOPAL</p>
 
-<p>Ver.1.4 履歴保存項目を拡張</p>
+<p>Ver.1.5 わたしの取扱説明書 基礎ロジック追加</p>
 <div class="card" id="checkinBox" style="display:block;">
 
   <h2>測定前に教えてください</h2>
@@ -351,6 +351,13 @@ video {
   <div id="todayGuideText"></div>
 </div>
 
+<div id="personalPatternBox" class="history-advice" style="display:none; margin-top:32px; margin-bottom:24px;">
+  <div style="font-size:20px; font-weight:700; margin-bottom:16px;">
+    わたしの取扱説明書
+  </div>
+  <div id="personalPatternText"></div>
+</div>
+
   <div class="warning">
     RMSSD・SDNNはHRV検証のための試験値です。<br>
     現段階では健康状態・自律神経・ストレス等の
@@ -405,6 +412,8 @@ const todayAdviceBox = document.getElementById("todayAdviceBox");
 const todayAdviceText = document.getElementById("todayAdviceText");
 const todayGuideBox = document.getElementById("todayGuideBox");
 const todayGuideText = document.getElementById("todayGuideText");
+const personalPatternBox = document.getElementById("personalPatternBox");
+const personalPatternText = document.getElementById("personalPatternText");
 const intervalBox = document.getElementById("intervalBox");
 const spectrumBox = document.getElementById("spectrumBox");
 
@@ -1080,6 +1089,66 @@ localStorage.setItem(
   "rppgCheckHistoryV1",
   JSON.stringify(history)
 );
+
+// ===== わたしの取扱説明書 =====
+
+// Ver.1.4以降の詳細情報がそろっている履歴だけを使用
+const patternHistory = history.filter(item =>
+  item.feeling &&
+  item.sleep &&
+  item.activity &&
+  item.situation &&
+  typeof item.bpm === "number"
+);
+
+if (patternHistory.length < 7) {
+
+  personalPatternBox.style.display = "block";
+
+  personalPatternText.textContent =
+    `あなたの傾向を準備中です。あと${7 - patternHistory.length}回ほど測定すると、生活背景と測定結果を組み合わせた「あなたの傾向」が少しずつ見えてきます。`;
+
+} else {
+
+  const recentPatternHistory = patternHistory.slice(-14);
+
+  const tiredHistory = recentPatternHistory.filter(item =>
+    item.feeling === "少し疲れている" ||
+    item.feeling === "かなり疲れている"
+  );
+
+  const poorSleepCount = tiredHistory.filter(item =>
+    item.sleep === "あまり眠れなかった"
+  ).length;
+
+  const highActivityCount = tiredHistory.filter(item =>
+    item.activity === "多い"
+  ).length;
+
+  personalPatternBox.style.display = "block";
+
+  if (
+    tiredHistory.length >= 3 &&
+    poorSleepCount >= Math.ceil(tiredHistory.length / 2)
+  ) {
+
+    personalPatternText.textContent =
+      "これまでの記録では、疲れを感じている時に「睡眠が十分でなかった」という回答が重なる傾向があります。睡眠と翌日の感覚の関係を、これからも確認していきましょう。";
+
+  } else if (
+    tiredHistory.length >= 3 &&
+    highActivityCount >= Math.ceil(tiredHistory.length / 2)
+  ) {
+
+    personalPatternText.textContent =
+      "これまでの記録では、活動・負担が多い日に疲れを感じる回答が重なる傾向があります。活動量とその後の感覚の変化を、これからも確認していきましょう。";
+
+  } else {
+
+    personalPatternText.textContent =
+      "記録が少しずつ蓄積されています。今のところ、生活背景と感覚の間に一つの明確な傾向は見えていません。測定を続けながら、あなた自身の変化のパターンを確認していきましょう。";
+  }
+}
 
 if (sameTimeHistory.length < 7) {
   const remaining = 7 - sameTimeHistory.length;
